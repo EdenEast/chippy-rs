@@ -232,6 +232,121 @@ impl Opcode {
             _ => Opcode::Invalid(opcode),
         }
     }
+
+    /// Output opcode as asm
+    /// Assembily output based on [cowgod's instructions](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM#3.1)
+    pub fn to_asm(&self) -> String {
+        match self {
+            Opcode::CallMachineCode(addr) => {
+                format!("sys 0x{:03X}", addr)
+            }
+            Opcode::ClearDisplay => {
+                format!("cls")
+            }
+            Opcode::Return => {
+                format!("ret")
+            }
+            Opcode::Jump(addr) => {
+                format!("jp 0x{:03X}", addr)
+            }
+            Opcode::Call(addr) => {
+                format!("call 0x{:03X}", addr)
+            }
+            Opcode::SkipIfEq(RegisterValuePair { register, value }) => {
+                format!("se v{:X}, 0x{:02X}", register, value)
+            }
+            Opcode::SkipIfNeq(RegisterValuePair { register, value }) => {
+                format!("sne v{:X}, 0x{:02X}", register, value)
+            }
+            Opcode::SkipIfRegEq(TargetSourcePair { target, source }) => {
+                format!("se v{:X}, v{:X}", target, source)
+            }
+            Opcode::SetReg(RegisterValuePair { register, value }) => {
+                format!("ld v{:X}, 0x{:02X}", register, value)
+            }
+            Opcode::AddValueToReg(RegisterValuePair { register, value }) => {
+                format!("add v{:X}, 0x{:02X}", register, value)
+            }
+            Opcode::SetRegXToRegY(TargetSourcePair { target, source }) => {
+                format!("ld v{:X}, v{:X}", target, source)
+            }
+            Opcode::BitXOrY(TargetSourcePair { target, source }) => {
+                format!("or v{:X}, v{:X}", target, source)
+            }
+            Opcode::BitXAndY(TargetSourcePair { target, source }) => {
+                format!("and v{:X}, v{:X}", target, source)
+            }
+            Opcode::BitXXorY(TargetSourcePair { target, source }) => {
+                format!("xor v{:X}, v{:X}", target, source)
+            }
+            Opcode::AddYToX(TargetSourcePair { target, source }) => {
+                format!("add v{:X}, v{:X}", target, source)
+            }
+            Opcode::SubYFromX(TargetSourcePair { target, source }) => {
+                format!("sub v{:X}, v{:X}", target, source)
+            }
+            Opcode::ShiftRight(register) => {
+                format!("shr v{:X}", register)
+            }
+            Opcode::SubXFromYIntoX(TargetSourcePair { target, source }) => {
+                format!("subn v{:X}, v{:X}", target, source)
+            }
+            Opcode::ShiftLeft(register) => {
+                format!("shl v{:X}", register)
+            }
+            Opcode::SkipIfDifferent(TargetSourcePair { target, source }) => {
+                format!("sne v{:X}, v{:X}", target, source)
+            }
+            Opcode::SetI(addr) => {
+                format!("ld i, 0x{:03X}", addr)
+            }
+            Opcode::JumpNPlusPC(addr) => {
+                format!("jp v0, 0x{:03X}", addr)
+            }
+            Opcode::Random(RegisterValuePair { register, value }) => {
+                format!("rnd v{:X}, 0x{:02X}", register, value)
+            }
+            Opcode::Draw { x, y, n } => {
+                format!("drw v{:X}, v{:X}, 0x{:X}", x, y, n)
+            }
+            Opcode::SkipIfKeyPressed(register) => {
+                format!("skp v{:X}", register)
+            }
+            Opcode::SkipIfNotKeyPressed(register) => {
+                format!("sknp v{:X}", register)
+            }
+            Opcode::SetXAsDT(register) => {
+                format!("ld v{:x}, dt", register)
+            }
+            Opcode::WaitInputStoreIn(register) => {
+                format!("ld v{:x}, k", register)
+            }
+            Opcode::SetDTAsX(register) => {
+                format!("ld dt, v{:x}", register)
+            }
+            Opcode::SetSTAsX(register) => {
+                format!("ld st, v{:x}", register)
+            }
+            Opcode::AddXToI(register) => {
+                format!("add i, v{:x}", register)
+            }
+            Opcode::SetIToFontSprite(register) => {
+                format!("ld f, v{:x}", register)
+            }
+            Opcode::StoreBCD(register) => {
+                format!("ld b, v{:x}", register)
+            }
+            Opcode::DumpRegisters(register) => {
+                format!("ld [i], v{:x}", register)
+            }
+            Opcode::LoadRegisters(register) => {
+                format!("ld v{:x}, [i]", register)
+            }
+            Opcode::Invalid(value) => {
+                format!("raw 0x{:04X}", value)
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -508,5 +623,53 @@ mod tests {
     #[test]
     fn load_registers() {
         assert_eq!(Opcode::LoadRegisters(0xA), Opcode::parse(0xFA65));
+    }
+
+    #[test]
+    fn asm_output() {
+        let pairs = vec![
+            (0x00E0, "cls"),
+            (0x00EE, "ret"),
+            (0x0246, "sys 0x246"),
+            (0x1246, "jp 0x246"),
+            (0x2357, "call 0x357"),
+            (0x32DE, "se v2, 0xDE"),
+            (0x42DE, "sne v2, 0xDE"),
+            (0x5210, "se v2, v1"),
+            (0x6218, "ld v2, 0x18"),
+            (0x70E3, "add v0, 0xE3"),
+            (0x8120, "ld v1, v2"),
+            (0x8121, "or v1, v2"),
+            (0x8122, "and v1, v2"),
+            (0x8123, "xor v1, v2"),
+            (0x8124, "add v1, v2"),
+            (0x8125, "sub v1, v2"),
+            (0x8126, "shr v1"),
+            (0x8127, "subn v1, v2"),
+            (0x812E, "shl v1"),
+            (0x93E0, "sne v3, vE"),
+            (0xA123, "ld i, 0x123"),
+            (0xB123, "jp v0, 0x123"),
+            (0xC123, "rnd v1, 0x23"),
+            (0xD123, "drw v1, v2, 0x3"),
+            (0xE19E, "skp v1"),
+            (0xE1A1, "sknp v1"),
+            (0xF107, "ld v1, dt"),
+            (0xF10A, "ld v1, k"),
+            (0xF115, "ld dt, v1"),
+            (0xF118, "ld st, v1"),
+            (0xF11E, "add i, v1"),
+            (0xF129, "ld f, v1"),
+            (0xF133, "ld b, v1"),
+            (0xF155, "ld [i], v1"),
+            (0xF165, "ld v1, [i]"),
+            (0xF169, "raw 0xF169"),
+        ];
+
+        for (code, result) in pairs {
+            let opcode = Opcode::parse(code);
+            let actual = opcode.to_asm();
+            assert_eq!(actual, result);
+        }
     }
 }
