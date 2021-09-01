@@ -2,3 +2,4 @@
 #![allow(unused_variables)]
 
 mod opcode;
+mod vm;
