@@ -115,7 +115,7 @@ pub enum Opcode {
     /// the coordinates of the display, it wraps around to the opposite side of the screen. See
     /// instruction 8xy3 for more information on XOR, and section 2.4, Display, for more
     /// information on the Chip-8 screen and sprites.
-    Draw, // TODO
+    Draw { x: u8, y: u8, n: u8 }, // TODO
 
     /// Ex9E - SKP Vx Skip next instruction if key with the value of Vx is pressed.  Checks the
     /// keyboard, and if the key corresponding to the value of Vx is currently in the down
@@ -217,7 +217,7 @@ impl Opcode {
             [0xA, _, _, _] => Opcode::SetI(as_nnn(opcode)),
             [0xB, _, _, _] => Opcode::JumpNPlusPC(as_nnn(opcode)),
             [0xC, register, c1, c2] => Opcode::Random(as_rv_pair(register, c1, c2)),
-            [0xD, _, _, _] => Opcode::Draw,
+            [0xD, x, y, n] => Opcode::Draw { x, y, n },
             [0xE, x, 0x9, 0xE] => Opcode::SkipIfKeyPressed(x),
             [0xE, x, 0xA, 0x1] => Opcode::SkipIfNotKeyPressed(x),
             [0xF, x, 0x0, 0x7] => Opcode::SetXAsDT(x),
@@ -445,7 +445,14 @@ mod tests {
 
     #[test]
     fn draw() {
-        assert_eq!(Opcode::Draw, Opcode::parse(0xDABB));
+        assert_eq!(
+            Opcode::Draw {
+                x: 0xA,
+                y: 0xB,
+                n: 0xC,
+            },
+            Opcode::parse(0xDABC)
+        );
     }
 
     #[test]

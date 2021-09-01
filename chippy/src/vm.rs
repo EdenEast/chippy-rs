@@ -1,4 +1,8 @@
-use crate::opcode::{Opcode, RegisterValuePair, TargetSourcePair};
+use crate::{
+    display::Display,
+    font::FONT_SET,
+    opcode::{Opcode, RegisterValuePair, TargetSourcePair},
+};
 use byteorder::{BigEndian, ReadBytesExt};
 
 const INITIAL_PROGRAM_COUNTER: u16 = 0x200;
@@ -25,25 +29,32 @@ fn skip_if(condition: bool) -> ProgramCounter {
 }
 
 pub struct Vm {
+    pub display: Display,
     memory: [u8; MEMORY_SIZE],
     registers: [Register; REGISTER_SIZE],
     stack: [StackEntry; STACK_SIZE],
     stack_pointer: usize,
     index: u16,
     program_counter: u16,
+    should_draw: bool,
 }
 
 impl Vm {
     pub fn new() -> Self {
-        let memory = [0; MEMORY_SIZE];
+        let mut memory = [0; MEMORY_SIZE];
+        for (index, character) in FONT_SET.iter().enumerate() {
+            memory[index] = *character;
+        }
 
         Self {
+            display: Display::new(),
             memory,
             registers: [0; REGISTER_SIZE],
             stack: [0; STACK_SIZE],
             stack_pointer: 0,
             index: 0,
             program_counter: INITIAL_PROGRAM_COUNTER,
+            should_draw: false,
         }
     }
 
@@ -58,14 +69,20 @@ impl Vm {
             self.memory[index] = 0;
         }
 
+        self.display.clear();
         self.registers = [0; REGISTER_SIZE];
         self.stack = [0; STACK_SIZE];
         self.stack_pointer = 0;
         self.index = 0;
         self.program_counter = INITIAL_PROGRAM_COUNTER;
+        self.should_draw = false;
     }
 
     pub fn cycle(&mut self) {
+        if self.should_draw {
+            self.should_draw = false;
+        }
+
         let position = self.program_counter as usize;
         let mut parts = &self.memory[position..position + 2];
         let opcode = parts.read_u16::<BigEndian>().unwrap();
@@ -178,8 +195,15 @@ impl Vm {
                 self.set_register(register, random & value);
                 ProgramCounter::Next
             }
-            Opcode::Draw => {
-                unimplemented!() // TODO
+            Opcode::Draw { x, y, n } => {
+                let new_vf = self.display.draw(
+                    self.get_register(x) as usize,
+                    self.get_register(y) as usize,
+                    &self.memory[self.index as usize..(self.index + n as u16) as usize],
+                );
+                self.set_vf_register(new_vf);
+                self.should_draw = true;
+                ProgramCounter::Next
             }
             Opcode::SkipIfKeyPressed(_) => {
                 unimplemented!() // TODO
