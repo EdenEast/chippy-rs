@@ -1,7 +1,7 @@
 use crate::{
-    display::Display,
-    font::FONT_SET,
-    opcode::{Opcode, RegisterValuePair, TargetSourcePair},
+    emu::display::Display,
+    emu::font::FONT_SET,
+    emu::opcode::{Opcode, RegisterValuePair, TargetSourcePair},
 };
 use byteorder::{BigEndian, ReadBytesExt};
 
