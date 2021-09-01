@@ -80,7 +80,8 @@ pub enum Opcode {
     SubYFromX(TargetSourcePair),
 
     /// 8xy6 - SHR Vx {, Vy} Set Vx = Vx SHR 1.  If the least-significant bit of Vx is 1, then VF
-    /// is set to 1, otherwise 0. Then Vx is divided by 2.
+    /// is set to 1, otherwise 0. Then Vx is divided by 2. NOTE: there is no information on what y
+    /// is set to
     ShiftRight(u8),
 
     /// 8xy7 - SUBN Vx, Vy Set Vx = Vy - Vx, set VF = NOT borrow.  If Vy > Vx, then VF is set to 1,
@@ -88,7 +89,8 @@ pub enum Opcode {
     SubXFromYIntoX(TargetSourcePair),
 
     /// 8xyE - SHL Vx {, Vy} Set Vx = Vx SHL 1.  If the most-significant bit of Vx is 1, then VF is
-    /// set to 1, otherwise to 0. Then Vx is multiplied by 2.
+    /// set to 1, otherwise to 0. Then Vx is multiplied by 2. NOTE: there is no information on what
+    /// y is set to
     ShiftLeft(u8),
 
     /// 9xy0 - SNE Vx, Vy Skip next instruction if Vx != Vy.  The values of Vx and Vy are compared,
@@ -188,6 +190,18 @@ fn as_nibble_array(opcode: u16) -> [u8; 4] {
     let third = ((opcode & 0x00F0) >> 4) as u8;
     let fourth = (opcode & 0x000F) as u8;
     [first, second, third, fourth]
+}
+
+fn pack_xkk(rv: &RegisterValuePair) -> u16 {
+    (((rv.register & 0xF) as u16) << 8) + (rv.value as u16)
+}
+
+fn pack_xyn(x: u8, y: u8, n: u8) -> u16 {
+    ((x as u16) << 8) + ((y as u16) << 4) + (n as u16)
+}
+
+fn pack_tsn(ts: &TargetSourcePair, n: u8) -> u16 {
+    pack_xyn(ts.target, ts.source, n)
 }
 
 impl Opcode {
@@ -345,6 +359,47 @@ impl Opcode {
             Opcode::Invalid(value) => {
                 format!("raw 0x{:04X}", value)
             }
+        }
+    }
+
+    pub fn to_u16(&self) -> u16 {
+        match self {
+            Opcode::CallMachineCode(addr) => (0x0u16 << 12) + addr,
+            Opcode::ClearDisplay => 0x00E0,
+            Opcode::Return => 0x00EE,
+            Opcode::Jump(addr) => (0x1u16 << 12) + addr,
+            Opcode::Call(addr) => (0x2u16 << 12) + addr,
+            Opcode::SkipIfEq(rv) => (0x3u16 << 12) + pack_xkk(rv),
+            Opcode::SkipIfNeq(rv) => (0x4u16 << 12) + pack_xkk(rv),
+            Opcode::SkipIfRegEq(ts) => (0x5u16 << 12) + pack_tsn(ts, 0),
+            Opcode::SetReg(rv) => (0x6u16 << 12) + pack_xkk(rv),
+            Opcode::AddValueToReg(rv) => (0x7u16 << 12) + pack_xkk(rv),
+            Opcode::SetRegXToRegY(ts) => (0x8u16 << 12) + pack_tsn(ts, 0),
+            Opcode::BitXOrY(ts) => (0x8u16 << 12) + pack_tsn(ts, 1),
+            Opcode::BitXAndY(ts) => (0x8u16 << 12) + pack_tsn(ts, 2),
+            Opcode::BitXXorY(ts) => (0x8u16 << 12) + pack_tsn(ts, 3),
+            Opcode::AddYToX(ts) => (0x8u16 << 12) + pack_tsn(ts, 4),
+            Opcode::SubYFromX(ts) => (0x8u16 << 12) + pack_tsn(ts, 5),
+            Opcode::ShiftRight(register) => (0x8u16 << 12) + pack_xyn(*register, 0, 6),
+            Opcode::SubXFromYIntoX(ts) => (0x8u16 << 12) + pack_tsn(ts, 7),
+            Opcode::ShiftLeft(register) => (0x8u16 << 12) + ((*register as u16) << 8) + 0xE, //  pack_xyn(*register, 0, 0xE),
+            Opcode::SkipIfDifferent(ts) => (0x9u16 << 12) + pack_tsn(ts, 0),
+            Opcode::SetI(addr) => (0xAu16 << 12) + addr,
+            Opcode::JumpNPlusPC(addr) => (0xBu16 << 12) + addr,
+            Opcode::Random(rv) => (0xCu16 << 12) + pack_xkk(rv),
+            Opcode::Draw { x, y, n } => (0xDu16 << 12) + pack_xyn(*x, *y, *n),
+            Opcode::SkipIfKeyPressed(register) => (0xEu16 << 12) + pack_xyn(*register, 0x9, 0xE),
+            Opcode::SkipIfNotKeyPressed(register) => (0xEu16 << 12) + pack_xyn(*register, 0xA, 0x1),
+            Opcode::SetXAsDT(register) => (0xFu16 << 12) + pack_xyn(*register, 0x0, 0x7),
+            Opcode::WaitInputStoreIn(register) => (0xFu16 << 12) + pack_xyn(*register, 0x0, 0xA),
+            Opcode::SetDTAsX(register) => (0xFu16 << 12) + pack_xyn(*register, 0x1, 0x5),
+            Opcode::SetSTAsX(register) => (0xFu16 << 12) + pack_xyn(*register, 0x1, 0x8),
+            Opcode::AddXToI(register) => (0xFu16 << 12) + pack_xyn(*register, 0x1, 0xE),
+            Opcode::SetIToFontSprite(register) => (0xFu16 << 12) + pack_xyn(*register, 0x2, 0x9),
+            Opcode::StoreBCD(register) => (0xFu16 << 12) + pack_xyn(*register, 0x3, 0x3),
+            Opcode::DumpRegisters(register) => (0xFu16 << 12) + pack_xyn(*register, 0x5, 0x5),
+            Opcode::LoadRegisters(register) => (0xFu16 << 12) + pack_xyn(*register, 0x6, 0x5),
+            Opcode::Invalid(code) => *code,
         }
     }
 }
@@ -671,5 +726,46 @@ mod tests {
             let actual = opcode.to_asm();
             assert_eq!(actual, result);
         }
+    }
+
+    #[test]
+    fn code_to_u16() {
+        // NOTE: for 0x8xy6 (shift left) 0x8xyE (shift right) dont store y to set them to 0 for the test
+        let code_list = vec![
+            0x00E0, 0x00EE, 0x0246, 0x1246, 0x2357, 0x32DE, 0x42DE, 0x5210, 0x6218, 0x70E3, 0x8120,
+            0x8121, 0x8122, 0x8123, 0x8124, 0x8125, 0x8106, 0x8127, 0x810E, 0x93E0, 0xA123, 0xB123,
+            0xC123, 0xD123, 0xE19E, 0xE1A1, 0xF107, 0xF10A, 0xF115, 0xF118, 0xF11E, 0xF129, 0xF133,
+            0xF155, 0xF165, 0xF169,
+        ];
+
+        for code in code_list {
+            let opcode = Opcode::parse(code);
+            let result = opcode.to_u16();
+            assert_eq!(result, code);
+        }
+    }
+
+    #[test]
+    fn packing_xkk() {
+        let rv = RegisterValuePair {
+            register: 0xA,
+            value: 0xBB,
+        };
+        let result = 0x6ABB;
+        let actual = (0x6u16 << 12) + pack_xkk(&rv);
+
+        assert_eq!(actual, result);
+    }
+
+    #[test]
+    fn packing_tsn() {
+        let ts = TargetSourcePair {
+            target: 0xA,
+            source: 0xB,
+        };
+        let result = 0x8AB2;
+        let actual = (08u16 << 12) + pack_tsn(&ts, 2);
+
+        assert_eq!(actual, result);
     }
 }
