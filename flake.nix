@@ -33,6 +33,7 @@
               rust
               rust-analyzer
               cargo-watch
+              cargo-edit
             ];
 
             RUST_BACKTRACE = 1;
