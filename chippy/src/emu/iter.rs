@@ -1,7 +1,8 @@
+use byteorder::{BigEndian, ReadBytesExt};
+use std::io::Cursor;
+
 pub struct ByteCodeIter<'a> {
-    slice: &'a [u8],
-    index: usize,
-    len: usize,
+    cursor: Cursor<&'a [u8]>,
 }
 
 impl<'a> ByteCodeIter<'a> {
@@ -10,26 +11,18 @@ impl<'a> ByteCodeIter<'a> {
             slice.len() % 2 == 0,
             "ByteCode must be an even array as opcodes are 2 u8"
         );
+
         Self {
-            slice,
-            index: 0usize,
-            len: slice.len() / 2,
+            cursor: Cursor::new(slice),
         }
     }
 }
 
 impl<'a> Iterator for ByteCodeIter<'a> {
     type Item = u16;
+
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index == self.len {
-            return None;
-        }
-
-        let code =
-            ((self.slice[self.index * 2] as u16) << 8) + self.slice[self.index * 2 + 1] as u16;
-        self.index += 1;
-
-        Some(code)
+        self.cursor.read_u16::<BigEndian>().ok()
     }
 }
 
