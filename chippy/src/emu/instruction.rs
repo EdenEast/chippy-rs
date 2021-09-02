@@ -82,7 +82,7 @@ pub enum Instruction {
     /// 8xy6 - SHR Vx {, Vy} Set Vx = Vx SHR 1.  If the least-significant bit of Vx is 1, then VF
     /// is set to 1, otherwise 0. Then Vx is divided by 2. NOTE: there is no information on what y
     /// is set to
-    ShiftRight(u8),
+    ShiftRight(TargetSourcePair),
 
     /// 8xy7 - SUBN Vx, Vy Set Vx = Vy - Vx, set VF = NOT borrow.  If Vy > Vx, then VF is set to 1,
     /// otherwise 0. Then Vx is subtracted from Vy, and the results stored in Vx.
@@ -91,7 +91,7 @@ pub enum Instruction {
     /// 8xyE - SHL Vx {, Vy} Set Vx = Vx SHL 1.  If the most-significant bit of Vx is 1, then VF is
     /// set to 1, otherwise to 0. Then Vx is multiplied by 2. NOTE: there is no information on what
     /// y is set to
-    ShiftLeft(u8),
+    ShiftLeft(TargetSourcePair),
 
     /// 9xy0 - SNE Vx, Vy Skip next instruction if Vx != Vy.  The values of Vx and Vy are compared,
     /// and if they are not equal, the program counter is increased by 2.
@@ -224,9 +224,9 @@ impl Instruction {
             [0x8, x, y, 0x3] => Instruction::BitXXorY(as_ts_pair(x, y)),
             [0x8, x, y, 0x4] => Instruction::AddYToX(as_ts_pair(x, y)),
             [0x8, x, y, 0x5] => Instruction::SubYFromX(as_ts_pair(x, y)),
-            [0x8, x, _, 0x6] => Instruction::ShiftRight(x),
+            [0x8, x, y, 0x6] => Instruction::ShiftRight(as_ts_pair(x, y)),
             [0x8, x, y, 0x7] => Instruction::SubXFromYIntoX(as_ts_pair(x, y)),
-            [0x8, x, _, 0xE] => Instruction::ShiftLeft(x),
+            [0x8, x, y, 0xE] => Instruction::ShiftLeft(as_ts_pair(x, y)),
             [0x9, x, y, 0x0] => Instruction::SkipIfDifferent(as_ts_pair(x, y)),
             [0xA, _, _, _] => Instruction::SetI(as_nnn(opcode)),
             [0xB, _, _, _] => Instruction::JumpNPlusPC(as_nnn(opcode)),
@@ -299,14 +299,14 @@ impl Instruction {
             Instruction::SubYFromX(TargetSourcePair { target, source }) => {
                 format!("sub v{:X}, v{:X}", target, source)
             }
-            Instruction::ShiftRight(register) => {
-                format!("shr v{:X}", register)
+            Instruction::ShiftRight(TargetSourcePair { target, source }) => {
+                format!("shr v{:X}", target)
             }
             Instruction::SubXFromYIntoX(TargetSourcePair { target, source }) => {
                 format!("subn v{:X}, v{:X}", target, source)
             }
-            Instruction::ShiftLeft(register) => {
-                format!("shl v{:X}", register)
+            Instruction::ShiftLeft(TargetSourcePair { target, source }) => {
+                format!("shl v{:X}", target)
             }
             Instruction::SkipIfDifferent(TargetSourcePair { target, source }) => {
                 format!("sne v{:X}, v{:X}", target, source)
@@ -380,9 +380,9 @@ impl Instruction {
             Instruction::BitXXorY(ts) => (0x8u16 << 12) + pack_tsn(ts, 3),
             Instruction::AddYToX(ts) => (0x8u16 << 12) + pack_tsn(ts, 4),
             Instruction::SubYFromX(ts) => (0x8u16 << 12) + pack_tsn(ts, 5),
-            Instruction::ShiftRight(register) => (0x8u16 << 12) + pack_xyn(*register, 0, 6),
+            Instruction::ShiftRight(ts) => (0x8u16 << 12) + pack_tsn(ts, 6),
             Instruction::SubXFromYIntoX(ts) => (0x8u16 << 12) + pack_tsn(ts, 7),
-            Instruction::ShiftLeft(register) => (0x8u16 << 12) + ((*register as u16) << 8) + 0xE, //  pack_xyn(*register, 0, 0xE),
+            Instruction::ShiftLeft(ts) => (0x8u16 << 12) + pack_tsn(ts, 0xE),
             Instruction::SkipIfDifferent(ts) => (0x9u16 << 12) + pack_tsn(ts, 0),
             Instruction::SetI(addr) => (0xAu16 << 12) + addr,
             Instruction::JumpNPlusPC(addr) => (0xBu16 << 12) + addr,
@@ -573,7 +573,13 @@ mod tests {
 
     #[test]
     fn shift_right() {
-        assert_eq!(Instruction::ShiftRight(0xA), Instruction::parse(0x8AB6));
+        assert_eq!(
+            Instruction::ShiftRight(TargetSourcePair {
+                target: 0xA,
+                source: 0xB,
+            }),
+            Instruction::parse(0x8AB6)
+        );
     }
 
     #[test]
@@ -589,7 +595,13 @@ mod tests {
 
     #[test]
     fn shift_left() {
-        assert_eq!(Instruction::ShiftLeft(0xA), Instruction::parse(0x8ABE));
+        assert_eq!(
+            Instruction::ShiftLeft(TargetSourcePair {
+                target: 0xA,
+                source: 0xB,
+            }),
+            Instruction::parse(0x8ABE)
+        );
     }
 
     #[test]

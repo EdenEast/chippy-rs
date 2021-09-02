@@ -161,10 +161,10 @@ impl Vm {
                 self.set_register(target, result);
                 ProgramCounter::Next
             }
-            Instruction::ShiftRight(register) => {
-                let value = self.get_register(register);
+            Instruction::ShiftRight(TargetSourcePair { target, source }) => {
+                let value = self.get_register(target);
                 self.set_vf_register(value & 0xF);
-                self.set_register(register, value >> 1);
+                self.set_register(target, value >> 1);
                 ProgramCounter::Next
             }
             Instruction::SubXFromYIntoX(TargetSourcePair { target, source }) => {
@@ -175,10 +175,10 @@ impl Vm {
                 self.set_register(target, result);
                 ProgramCounter::Next
             }
-            Instruction::ShiftLeft(register) => {
-                let value = self.get_register(register);
+            Instruction::ShiftLeft(TargetSourcePair { target, source }) => {
+                let value = self.get_register(target);
                 self.set_vf_register(value >> 7);
-                self.set_register(register, value << 1);
+                self.set_register(target, value << 1);
                 ProgramCounter::Next
             }
             Instruction::SkipIfDifferent(TargetSourcePair { target, source }) => {
