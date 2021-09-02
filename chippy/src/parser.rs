@@ -1,14 +1,64 @@
 use crate::emu::opcode::Opcode;
+use thiserror::Error;
+
+pub type ParseResult<T> = std::result::Result<T, ParseError>;
+
+#[derive(Debug, Error)]
+pub enum ParseError {
+    #[error("IO Error: {0}")]
+    Io(#[from] std::io::Error),
+}
+
+pub struct ByteCodeIter<'a> {
+    slice: &'a [u8],
+    index: usize,
+    len: usize,
+}
+
+impl<'a> ByteCodeIter<'a> {
+    pub fn new(slice: &'a [u8]) -> Self {
+        assert!(
+            slice.len() % 2 == 0,
+            "ByteCode must be an even array as opcodes are 2 u8"
+        );
+        Self {
+            slice,
+            index: 0usize,
+            len: slice.len() / 2,
+        }
+    }
+}
+
+impl<'a> Iterator for ByteCodeIter<'a> {
+    type Item = u16;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index == self.len {
+            return None;
+        }
+
+        let code =
+            ((self.slice[self.index * 2] as u16) << 8) + self.slice[self.index * 2 + 1] as u16;
+        self.index += 1;
+
+        Some(code)
+    }
+}
+
+pub fn from_asm(program: &str) -> ParseResult<Vec<Opcode>> {
+    Ok(vec![])
+}
+
+pub fn to_bin(opcodes: &[Opcode]) -> ParseResult<Vec<u8>> {
+    Ok(opcodes
+        .iter()
+        .flat_map(|code| code.to_u16().to_be_bytes())
+        .collect())
+}
 
 pub fn to_asm(tokens: &[u8]) -> String {
-    // Since every opcode is a u16 built with two tokens the instruction are only half
-    let mut instructions = Vec::with_capacity(tokens.len() / 2);
-
-    for i in 0..(tokens.len() / 2) {
-        let value = ((tokens[i * 2] as u16) << 8) + tokens[i * 2 + 1] as u16;
-        let opcode = Opcode::parse(value);
-        instructions.push(opcode.to_asm())
-    }
+    let instructions: Vec<String> = ByteCodeIter::new(tokens)
+        .map(|code| Opcode::parse(code).to_asm())
+        .collect();
 
     format!("{}", instructions.join("\n"))
 }
@@ -68,4 +118,27 @@ mod tests {
         let result = to_asm(&program);
         assert_eq!(result, actual);
     }
+
+    #[test]
+    fn bin_iterator() {
+        let program = vec![0x12, 0x23, 0x34, 0x45, 0x56, 0x67];
+        let mut iter = ByteCodeIter::new(&program);
+        assert_eq!(Some(0x1223), iter.next());
+        assert_eq!(Some(0x3445), iter.next());
+        assert_eq!(Some(0x5667), iter.next());
+        assert_eq!(None, iter.next());
+    }
+
+    #[test]
+    #[should_panic]
+    fn bin_iterator_panic_odd_slice() {
+        // This program is invalid as it is odd length and cannot construct a opcode
+        let program = vec![0x12, 0x23, 0x34];
+
+        // This should panic
+        let iter = ByteCodeIter::new(&program);
+    }
+
+    // #[test]
+    // fn opcodes_to_bin() {}
 }
