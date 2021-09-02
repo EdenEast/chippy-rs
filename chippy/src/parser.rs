@@ -1,4 +1,4 @@
-use crate::emu::{iter::ByteCodeIter, opcode::Opcode};
+use crate::emu::{instruction::Instruction, iter::ByteCodeIter};
 use thiserror::Error;
 
 pub type ParseResult<T> = std::result::Result<T, ParseError>;
@@ -9,12 +9,12 @@ pub enum ParseError {
     Io(#[from] std::io::Error),
 }
 
-pub fn from_asm(program: &str) -> ParseResult<Vec<Opcode>> {
+pub fn from_asm(program: &str) -> ParseResult<Vec<Instruction>> {
     Ok(vec![])
 }
 
-pub fn to_bin(opcodes: &[Opcode]) -> ParseResult<Vec<u8>> {
-    Ok(opcodes
+pub fn to_bin(instructions: &[Instruction]) -> ParseResult<Vec<u8>> {
+    Ok(instructions
         .iter()
         .flat_map(|code| code.to_u16().to_be_bytes())
         .collect())
@@ -22,7 +22,7 @@ pub fn to_bin(opcodes: &[Opcode]) -> ParseResult<Vec<u8>> {
 
 pub fn to_asm(tokens: &[u8]) -> String {
     let instructions: Vec<String> = ByteCodeIter::new(tokens)
-        .map(|code| Opcode::parse(code).to_asm())
+        .map(|code| Instruction::parse(code).to_asm())
         .collect();
 
     format!("{}", instructions.join("\n"))
@@ -83,6 +83,4 @@ mod tests {
         let result = to_asm(&program);
         assert_eq!(result, actual);
     }
-    // #[test]
-    // fn opcodes_to_bin() {}
 }

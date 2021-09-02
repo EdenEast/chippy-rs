@@ -1,7 +1,7 @@
 use crate::{
     emu::display::Display,
     emu::font::FONT_SET,
-    emu::opcode::{Opcode, RegisterValuePair, TargetSourcePair},
+    emu::instruction::{Instruction, RegisterValuePair, TargetSourcePair},
 };
 use byteorder::{BigEndian, ReadBytesExt};
 
@@ -87,65 +87,65 @@ impl Vm {
         let mut parts = &self.memory[position..position + 2];
         let opcode = parts.read_u16::<BigEndian>().unwrap();
 
-        self.program_counter = match self.execute_opcode(opcode) {
+        self.program_counter = match self.execute_instruction(opcode) {
             ProgramCounter::Next => self.program_counter + 2,
             ProgramCounter::Skip => self.program_counter + 4,
             ProgramCounter::Jump(addr) => addr,
         };
     }
 
-    pub fn execute_opcode(&mut self, opcode: u16) -> ProgramCounter {
-        match Opcode::parse(opcode) {
-            Opcode::CallMachineCode(_) => {
+    pub fn execute_instruction(&mut self, opcode: u16) -> ProgramCounter {
+        match Instruction::parse(opcode) {
+            Instruction::CallMachineCode(_) => {
                 ProgramCounter::Next // TODO
             }
-            Opcode::ClearDisplay => {
+            Instruction::ClearDisplay => {
                 ProgramCounter::Next // TODO
             }
-            Opcode::Return => ProgramCounter::Jump(self.pop_stack()),
-            Opcode::Jump(addr) => ProgramCounter::Jump(addr),
-            Opcode::Call(addr) => {
+            Instruction::Return => ProgramCounter::Jump(self.pop_stack()),
+            Instruction::Jump(addr) => ProgramCounter::Jump(addr),
+            Instruction::Call(addr) => {
                 self.push_stack();
                 ProgramCounter::Jump(addr)
             }
-            Opcode::SkipIfEq(RegisterValuePair { register, value }) => {
+            Instruction::SkipIfEq(RegisterValuePair { register, value }) => {
                 skip_if(self.get_register(register) == value)
             }
-            Opcode::SkipIfNeq(RegisterValuePair { register, value }) => {
+            Instruction::SkipIfNeq(RegisterValuePair { register, value }) => {
                 skip_if(self.get_register(register) != value)
             }
-            Opcode::SkipIfRegEq(TargetSourcePair { target, source }) => {
+            Instruction::SkipIfRegEq(TargetSourcePair { target, source }) => {
                 skip_if(self.get_register(target) == self.get_register(source))
             }
-            Opcode::SetReg(RegisterValuePair { register, value }) => {
+            Instruction::SetReg(RegisterValuePair { register, value }) => {
                 self.set_register(register, value);
                 ProgramCounter::Next
             }
-            Opcode::AddValueToReg(RegisterValuePair { register, value }) => {
+            Instruction::AddValueToReg(RegisterValuePair { register, value }) => {
                 let (sum, _) = self.get_register(register).overflowing_add(value);
                 self.set_register(register, sum);
                 ProgramCounter::Next
             }
-            Opcode::SetRegXToRegY(TargetSourcePair { target, source }) => {
+            Instruction::SetRegXToRegY(TargetSourcePair { target, source }) => {
                 self.set_register(target, self.get_register(source));
                 ProgramCounter::Next
             }
-            Opcode::BitXOrY(TargetSourcePair { target, source }) => {
+            Instruction::BitXOrY(TargetSourcePair { target, source }) => {
                 let result = self.get_register(target) | self.get_register(source);
                 self.set_register(target, result);
                 ProgramCounter::Next
             }
-            Opcode::BitXAndY(TargetSourcePair { target, source }) => {
+            Instruction::BitXAndY(TargetSourcePair { target, source }) => {
                 let result = self.get_register(target) & self.get_register(source);
                 self.set_register(target, result);
                 ProgramCounter::Next
             }
-            Opcode::BitXXorY(TargetSourcePair { target, source }) => {
+            Instruction::BitXXorY(TargetSourcePair { target, source }) => {
                 let result = self.get_register(target) ^ self.get_register(source);
                 self.set_register(target, result);
                 ProgramCounter::Next
             }
-            Opcode::AddYToX(TargetSourcePair { target, source }) => {
+            Instruction::AddYToX(TargetSourcePair { target, source }) => {
                 let (result, did_overflow) = self
                     .get_register(target)
                     .overflowing_add(self.get_register(source));
@@ -153,7 +153,7 @@ impl Vm {
                 self.set_register(target, result);
                 ProgramCounter::Next
             }
-            Opcode::SubYFromX(TargetSourcePair { target, source }) => {
+            Instruction::SubYFromX(TargetSourcePair { target, source }) => {
                 let (result, did_overflow) = self
                     .get_register(target)
                     .overflowing_sub(self.get_register(source));
@@ -161,13 +161,13 @@ impl Vm {
                 self.set_register(target, result);
                 ProgramCounter::Next
             }
-            Opcode::ShiftRight(register) => {
+            Instruction::ShiftRight(register) => {
                 let value = self.get_register(register);
                 self.set_vf_register(value & 0xF);
                 self.set_register(register, value >> 1);
                 ProgramCounter::Next
             }
-            Opcode::SubXFromYIntoX(TargetSourcePair { target, source }) => {
+            Instruction::SubXFromYIntoX(TargetSourcePair { target, source }) => {
                 let (result, did_overflow) = self
                     .get_register(source)
                     .overflowing_sub(self.get_register(target));
@@ -175,27 +175,29 @@ impl Vm {
                 self.set_register(target, result);
                 ProgramCounter::Next
             }
-            Opcode::ShiftLeft(register) => {
+            Instruction::ShiftLeft(register) => {
                 let value = self.get_register(register);
                 self.set_vf_register(value >> 7);
                 self.set_register(register, value << 1);
                 ProgramCounter::Next
             }
-            Opcode::SkipIfDifferent(TargetSourcePair { target, source }) => {
+            Instruction::SkipIfDifferent(TargetSourcePair { target, source }) => {
                 skip_if(self.get_register(target) != self.get_register(source))
             }
-            Opcode::SetI(value) => {
+            Instruction::SetI(value) => {
                 self.index = value;
                 ProgramCounter::Next
             }
-            Opcode::JumpNPlusPC(addr) => ProgramCounter::Jump(addr + self.get_register(0x0) as u16),
-            Opcode::Random(RegisterValuePair { register, value }) => {
+            Instruction::JumpNPlusPC(addr) => {
+                ProgramCounter::Jump(addr + self.get_register(0x0) as u16)
+            }
+            Instruction::Random(RegisterValuePair { register, value }) => {
                 // TODO: get random number between 0, 255
                 let random = 0x5d;
                 self.set_register(register, random & value);
                 ProgramCounter::Next
             }
-            Opcode::Draw { x, y, n } => {
+            Instruction::Draw { x, y, n } => {
                 let new_vf = self.display.draw(
                     self.get_register(x) as usize,
                     self.get_register(y) as usize,
@@ -205,44 +207,44 @@ impl Vm {
                 self.should_draw = true;
                 ProgramCounter::Next
             }
-            Opcode::SkipIfKeyPressed(_) => {
+            Instruction::SkipIfKeyPressed(_) => {
                 unimplemented!() // TODO
             }
-            Opcode::SkipIfNotKeyPressed(_) => {
+            Instruction::SkipIfNotKeyPressed(_) => {
                 unimplemented!() // TODO
             }
-            Opcode::SetXAsDT(_) => {
+            Instruction::SetXAsDT(_) => {
                 unimplemented!() // TODO
             }
-            Opcode::WaitInputStoreIn(_) => {
+            Instruction::WaitInputStoreIn(_) => {
                 unimplemented!() // TODO
             }
-            Opcode::SetDTAsX(_) => {
+            Instruction::SetDTAsX(_) => {
                 unimplemented!() // TODO
             }
-            Opcode::SetSTAsX(_) => {
+            Instruction::SetSTAsX(_) => {
                 unimplemented!() // TODO
             }
-            Opcode::AddXToI(register) => {
+            Instruction::AddXToI(register) => {
                 let (result, _) = self
                     .index
                     .overflowing_add(self.get_register(register) as u16);
                 self.index = result;
                 ProgramCounter::Next
             }
-            Opcode::SetIToFontSprite(_) => {
+            Instruction::SetIToFontSprite(_) => {
                 unimplemented!() // TODO
             }
-            Opcode::StoreBCD(_) => {
+            Instruction::StoreBCD(_) => {
                 unimplemented!() // TODO
             }
-            Opcode::DumpRegisters(_) => {
+            Instruction::DumpRegisters(_) => {
                 unimplemented!() // TODO
             }
-            Opcode::LoadRegisters(_) => {
+            Instruction::LoadRegisters(_) => {
                 unimplemented!() // TODO
             }
-            Opcode::Invalid(_) => {
+            Instruction::Invalid(_) => {
                 unimplemented!() // TODO
             }
         }

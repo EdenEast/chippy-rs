@@ -11,7 +11,7 @@ pub struct RegisterValuePair {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Opcode {
+pub enum Instruction {
     /// 0nnn - SYS addr Jump to a machine code routine at nnn.  This instruction is only used on
     /// the old computers on which Chip-8 was originally implemented. It is ignored by modern
     /// interpreters.
@@ -204,159 +204,159 @@ fn pack_tsn(ts: &TargetSourcePair, n: u8) -> u16 {
     pack_xyn(ts.target, ts.source, n)
 }
 
-impl Opcode {
-    pub fn parse(opcode: u16) -> Opcode {
+impl Instruction {
+    pub fn parse(opcode: u16) -> Instruction {
         let nibbles = as_nibble_array(opcode);
         match nibbles {
-            [0x0, 0x0, 0xE, 0x0] => Opcode::ClearDisplay,
-            [0x0, 0x0, 0xE, 0xE] => Opcode::Return,
-            [0x0, _, _, _] => Opcode::CallMachineCode(as_nnn(opcode)),
-            [0x1, _, _, _] => Opcode::Jump(as_nnn(opcode)),
-            [0x2, _, _, _] => Opcode::Call(as_nnn(opcode)),
-            [0x3, register, c1, c2] => Opcode::SkipIfEq(as_rv_pair(register, c1, c2)),
-            [0x4, register, c1, c2] => Opcode::SkipIfNeq(as_rv_pair(register, c1, c2)),
-            [0x5, x, y, 0x0] => Opcode::SkipIfRegEq(as_ts_pair(x, y)),
-            [0x6, register, c1, c2] => Opcode::SetReg(as_rv_pair(register, c1, c2)),
-            [0x7, register, c1, c2] => Opcode::AddValueToReg(as_rv_pair(register, c1, c2)),
-            [0x8, x, y, 0x0] => Opcode::SetRegXToRegY(as_ts_pair(x, y)),
-            [0x8, x, y, 0x1] => Opcode::BitXOrY(as_ts_pair(x, y)),
-            [0x8, x, y, 0x2] => Opcode::BitXAndY(as_ts_pair(x, y)),
-            [0x8, x, y, 0x3] => Opcode::BitXXorY(as_ts_pair(x, y)),
-            [0x8, x, y, 0x4] => Opcode::AddYToX(as_ts_pair(x, y)),
-            [0x8, x, y, 0x5] => Opcode::SubYFromX(as_ts_pair(x, y)),
-            [0x8, x, _, 0x6] => Opcode::ShiftRight(x),
-            [0x8, x, y, 0x7] => Opcode::SubXFromYIntoX(as_ts_pair(x, y)),
-            [0x8, x, _, 0xE] => Opcode::ShiftLeft(x),
-            [0x9, x, y, 0x0] => Opcode::SkipIfDifferent(as_ts_pair(x, y)),
-            [0xA, _, _, _] => Opcode::SetI(as_nnn(opcode)),
-            [0xB, _, _, _] => Opcode::JumpNPlusPC(as_nnn(opcode)),
-            [0xC, register, c1, c2] => Opcode::Random(as_rv_pair(register, c1, c2)),
-            [0xD, x, y, n] => Opcode::Draw { x, y, n },
-            [0xE, x, 0x9, 0xE] => Opcode::SkipIfKeyPressed(x),
-            [0xE, x, 0xA, 0x1] => Opcode::SkipIfNotKeyPressed(x),
-            [0xF, x, 0x0, 0x7] => Opcode::SetXAsDT(x),
-            [0xF, x, 0x0, 0xA] => Opcode::WaitInputStoreIn(x),
-            [0xF, x, 0x1, 0x5] => Opcode::SetDTAsX(x),
-            [0xF, x, 0x1, 0x8] => Opcode::SetSTAsX(x),
-            [0xF, x, 0x1, 0xE] => Opcode::AddXToI(x),
-            [0xF, x, 0x2, 0x9] => Opcode::SetIToFontSprite(x),
-            [0xF, x, 0x3, 0x3] => Opcode::StoreBCD(x),
-            [0xF, x, 0x5, 0x5] => Opcode::DumpRegisters(x),
-            [0xF, x, 0x6, 0x5] => Opcode::LoadRegisters(x),
-            _ => Opcode::Invalid(opcode),
+            [0x0, 0x0, 0xE, 0x0] => Instruction::ClearDisplay,
+            [0x0, 0x0, 0xE, 0xE] => Instruction::Return,
+            [0x0, _, _, _] => Instruction::CallMachineCode(as_nnn(opcode)),
+            [0x1, _, _, _] => Instruction::Jump(as_nnn(opcode)),
+            [0x2, _, _, _] => Instruction::Call(as_nnn(opcode)),
+            [0x3, register, c1, c2] => Instruction::SkipIfEq(as_rv_pair(register, c1, c2)),
+            [0x4, register, c1, c2] => Instruction::SkipIfNeq(as_rv_pair(register, c1, c2)),
+            [0x5, x, y, 0x0] => Instruction::SkipIfRegEq(as_ts_pair(x, y)),
+            [0x6, register, c1, c2] => Instruction::SetReg(as_rv_pair(register, c1, c2)),
+            [0x7, register, c1, c2] => Instruction::AddValueToReg(as_rv_pair(register, c1, c2)),
+            [0x8, x, y, 0x0] => Instruction::SetRegXToRegY(as_ts_pair(x, y)),
+            [0x8, x, y, 0x1] => Instruction::BitXOrY(as_ts_pair(x, y)),
+            [0x8, x, y, 0x2] => Instruction::BitXAndY(as_ts_pair(x, y)),
+            [0x8, x, y, 0x3] => Instruction::BitXXorY(as_ts_pair(x, y)),
+            [0x8, x, y, 0x4] => Instruction::AddYToX(as_ts_pair(x, y)),
+            [0x8, x, y, 0x5] => Instruction::SubYFromX(as_ts_pair(x, y)),
+            [0x8, x, _, 0x6] => Instruction::ShiftRight(x),
+            [0x8, x, y, 0x7] => Instruction::SubXFromYIntoX(as_ts_pair(x, y)),
+            [0x8, x, _, 0xE] => Instruction::ShiftLeft(x),
+            [0x9, x, y, 0x0] => Instruction::SkipIfDifferent(as_ts_pair(x, y)),
+            [0xA, _, _, _] => Instruction::SetI(as_nnn(opcode)),
+            [0xB, _, _, _] => Instruction::JumpNPlusPC(as_nnn(opcode)),
+            [0xC, register, c1, c2] => Instruction::Random(as_rv_pair(register, c1, c2)),
+            [0xD, x, y, n] => Instruction::Draw { x, y, n },
+            [0xE, x, 0x9, 0xE] => Instruction::SkipIfKeyPressed(x),
+            [0xE, x, 0xA, 0x1] => Instruction::SkipIfNotKeyPressed(x),
+            [0xF, x, 0x0, 0x7] => Instruction::SetXAsDT(x),
+            [0xF, x, 0x0, 0xA] => Instruction::WaitInputStoreIn(x),
+            [0xF, x, 0x1, 0x5] => Instruction::SetDTAsX(x),
+            [0xF, x, 0x1, 0x8] => Instruction::SetSTAsX(x),
+            [0xF, x, 0x1, 0xE] => Instruction::AddXToI(x),
+            [0xF, x, 0x2, 0x9] => Instruction::SetIToFontSprite(x),
+            [0xF, x, 0x3, 0x3] => Instruction::StoreBCD(x),
+            [0xF, x, 0x5, 0x5] => Instruction::DumpRegisters(x),
+            [0xF, x, 0x6, 0x5] => Instruction::LoadRegisters(x),
+            _ => Instruction::Invalid(opcode),
         }
     }
 
-    /// Output opcode as asm
+    /// Output instruction as asm
     /// Assembily output based on [cowgod's instructions](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM#3.1)
     pub fn to_asm(&self) -> String {
         match self {
-            Opcode::CallMachineCode(addr) => {
+            Instruction::CallMachineCode(addr) => {
                 format!("sys 0x{:03X}", addr)
             }
-            Opcode::ClearDisplay => {
+            Instruction::ClearDisplay => {
                 format!("cls")
             }
-            Opcode::Return => {
+            Instruction::Return => {
                 format!("ret")
             }
-            Opcode::Jump(addr) => {
+            Instruction::Jump(addr) => {
                 format!("jp 0x{:03X}", addr)
             }
-            Opcode::Call(addr) => {
+            Instruction::Call(addr) => {
                 format!("call 0x{:03X}", addr)
             }
-            Opcode::SkipIfEq(RegisterValuePair { register, value }) => {
+            Instruction::SkipIfEq(RegisterValuePair { register, value }) => {
                 format!("se v{:X}, 0x{:02X}", register, value)
             }
-            Opcode::SkipIfNeq(RegisterValuePair { register, value }) => {
+            Instruction::SkipIfNeq(RegisterValuePair { register, value }) => {
                 format!("sne v{:X}, 0x{:02X}", register, value)
             }
-            Opcode::SkipIfRegEq(TargetSourcePair { target, source }) => {
+            Instruction::SkipIfRegEq(TargetSourcePair { target, source }) => {
                 format!("se v{:X}, v{:X}", target, source)
             }
-            Opcode::SetReg(RegisterValuePair { register, value }) => {
+            Instruction::SetReg(RegisterValuePair { register, value }) => {
                 format!("ld v{:X}, 0x{:02X}", register, value)
             }
-            Opcode::AddValueToReg(RegisterValuePair { register, value }) => {
+            Instruction::AddValueToReg(RegisterValuePair { register, value }) => {
                 format!("add v{:X}, 0x{:02X}", register, value)
             }
-            Opcode::SetRegXToRegY(TargetSourcePair { target, source }) => {
+            Instruction::SetRegXToRegY(TargetSourcePair { target, source }) => {
                 format!("ld v{:X}, v{:X}", target, source)
             }
-            Opcode::BitXOrY(TargetSourcePair { target, source }) => {
+            Instruction::BitXOrY(TargetSourcePair { target, source }) => {
                 format!("or v{:X}, v{:X}", target, source)
             }
-            Opcode::BitXAndY(TargetSourcePair { target, source }) => {
+            Instruction::BitXAndY(TargetSourcePair { target, source }) => {
                 format!("and v{:X}, v{:X}", target, source)
             }
-            Opcode::BitXXorY(TargetSourcePair { target, source }) => {
+            Instruction::BitXXorY(TargetSourcePair { target, source }) => {
                 format!("xor v{:X}, v{:X}", target, source)
             }
-            Opcode::AddYToX(TargetSourcePair { target, source }) => {
+            Instruction::AddYToX(TargetSourcePair { target, source }) => {
                 format!("add v{:X}, v{:X}", target, source)
             }
-            Opcode::SubYFromX(TargetSourcePair { target, source }) => {
+            Instruction::SubYFromX(TargetSourcePair { target, source }) => {
                 format!("sub v{:X}, v{:X}", target, source)
             }
-            Opcode::ShiftRight(register) => {
+            Instruction::ShiftRight(register) => {
                 format!("shr v{:X}", register)
             }
-            Opcode::SubXFromYIntoX(TargetSourcePair { target, source }) => {
+            Instruction::SubXFromYIntoX(TargetSourcePair { target, source }) => {
                 format!("subn v{:X}, v{:X}", target, source)
             }
-            Opcode::ShiftLeft(register) => {
+            Instruction::ShiftLeft(register) => {
                 format!("shl v{:X}", register)
             }
-            Opcode::SkipIfDifferent(TargetSourcePair { target, source }) => {
+            Instruction::SkipIfDifferent(TargetSourcePair { target, source }) => {
                 format!("sne v{:X}, v{:X}", target, source)
             }
-            Opcode::SetI(addr) => {
+            Instruction::SetI(addr) => {
                 format!("ld i, 0x{:03X}", addr)
             }
-            Opcode::JumpNPlusPC(addr) => {
+            Instruction::JumpNPlusPC(addr) => {
                 format!("jp v0, 0x{:03X}", addr)
             }
-            Opcode::Random(RegisterValuePair { register, value }) => {
+            Instruction::Random(RegisterValuePair { register, value }) => {
                 format!("rnd v{:X}, 0x{:02X}", register, value)
             }
-            Opcode::Draw { x, y, n } => {
+            Instruction::Draw { x, y, n } => {
                 format!("drw v{:X}, v{:X}, 0x{:X}", x, y, n)
             }
-            Opcode::SkipIfKeyPressed(register) => {
+            Instruction::SkipIfKeyPressed(register) => {
                 format!("skp v{:X}", register)
             }
-            Opcode::SkipIfNotKeyPressed(register) => {
+            Instruction::SkipIfNotKeyPressed(register) => {
                 format!("sknp v{:X}", register)
             }
-            Opcode::SetXAsDT(register) => {
+            Instruction::SetXAsDT(register) => {
                 format!("ld v{:x}, dt", register)
             }
-            Opcode::WaitInputStoreIn(register) => {
+            Instruction::WaitInputStoreIn(register) => {
                 format!("ld v{:x}, k", register)
             }
-            Opcode::SetDTAsX(register) => {
+            Instruction::SetDTAsX(register) => {
                 format!("ld dt, v{:x}", register)
             }
-            Opcode::SetSTAsX(register) => {
+            Instruction::SetSTAsX(register) => {
                 format!("ld st, v{:x}", register)
             }
-            Opcode::AddXToI(register) => {
+            Instruction::AddXToI(register) => {
                 format!("add i, v{:x}", register)
             }
-            Opcode::SetIToFontSprite(register) => {
+            Instruction::SetIToFontSprite(register) => {
                 format!("ld f, v{:x}", register)
             }
-            Opcode::StoreBCD(register) => {
+            Instruction::StoreBCD(register) => {
                 format!("ld b, v{:x}", register)
             }
-            Opcode::DumpRegisters(register) => {
+            Instruction::DumpRegisters(register) => {
                 format!("ld [i], v{:x}", register)
             }
-            Opcode::LoadRegisters(register) => {
+            Instruction::LoadRegisters(register) => {
                 format!("ld v{:x}, [i]", register)
             }
-            Opcode::Invalid(value) => {
+            Instruction::Invalid(value) => {
                 format!("raw 0x{:04X}", value)
             }
         }
@@ -364,42 +364,50 @@ impl Opcode {
 
     pub fn to_u16(&self) -> u16 {
         match self {
-            Opcode::CallMachineCode(addr) => (0x0u16 << 12) + addr,
-            Opcode::ClearDisplay => 0x00E0,
-            Opcode::Return => 0x00EE,
-            Opcode::Jump(addr) => (0x1u16 << 12) + addr,
-            Opcode::Call(addr) => (0x2u16 << 12) + addr,
-            Opcode::SkipIfEq(rv) => (0x3u16 << 12) + pack_xkk(rv),
-            Opcode::SkipIfNeq(rv) => (0x4u16 << 12) + pack_xkk(rv),
-            Opcode::SkipIfRegEq(ts) => (0x5u16 << 12) + pack_tsn(ts, 0),
-            Opcode::SetReg(rv) => (0x6u16 << 12) + pack_xkk(rv),
-            Opcode::AddValueToReg(rv) => (0x7u16 << 12) + pack_xkk(rv),
-            Opcode::SetRegXToRegY(ts) => (0x8u16 << 12) + pack_tsn(ts, 0),
-            Opcode::BitXOrY(ts) => (0x8u16 << 12) + pack_tsn(ts, 1),
-            Opcode::BitXAndY(ts) => (0x8u16 << 12) + pack_tsn(ts, 2),
-            Opcode::BitXXorY(ts) => (0x8u16 << 12) + pack_tsn(ts, 3),
-            Opcode::AddYToX(ts) => (0x8u16 << 12) + pack_tsn(ts, 4),
-            Opcode::SubYFromX(ts) => (0x8u16 << 12) + pack_tsn(ts, 5),
-            Opcode::ShiftRight(register) => (0x8u16 << 12) + pack_xyn(*register, 0, 6),
-            Opcode::SubXFromYIntoX(ts) => (0x8u16 << 12) + pack_tsn(ts, 7),
-            Opcode::ShiftLeft(register) => (0x8u16 << 12) + ((*register as u16) << 8) + 0xE, //  pack_xyn(*register, 0, 0xE),
-            Opcode::SkipIfDifferent(ts) => (0x9u16 << 12) + pack_tsn(ts, 0),
-            Opcode::SetI(addr) => (0xAu16 << 12) + addr,
-            Opcode::JumpNPlusPC(addr) => (0xBu16 << 12) + addr,
-            Opcode::Random(rv) => (0xCu16 << 12) + pack_xkk(rv),
-            Opcode::Draw { x, y, n } => (0xDu16 << 12) + pack_xyn(*x, *y, *n),
-            Opcode::SkipIfKeyPressed(register) => (0xEu16 << 12) + pack_xyn(*register, 0x9, 0xE),
-            Opcode::SkipIfNotKeyPressed(register) => (0xEu16 << 12) + pack_xyn(*register, 0xA, 0x1),
-            Opcode::SetXAsDT(register) => (0xFu16 << 12) + pack_xyn(*register, 0x0, 0x7),
-            Opcode::WaitInputStoreIn(register) => (0xFu16 << 12) + pack_xyn(*register, 0x0, 0xA),
-            Opcode::SetDTAsX(register) => (0xFu16 << 12) + pack_xyn(*register, 0x1, 0x5),
-            Opcode::SetSTAsX(register) => (0xFu16 << 12) + pack_xyn(*register, 0x1, 0x8),
-            Opcode::AddXToI(register) => (0xFu16 << 12) + pack_xyn(*register, 0x1, 0xE),
-            Opcode::SetIToFontSprite(register) => (0xFu16 << 12) + pack_xyn(*register, 0x2, 0x9),
-            Opcode::StoreBCD(register) => (0xFu16 << 12) + pack_xyn(*register, 0x3, 0x3),
-            Opcode::DumpRegisters(register) => (0xFu16 << 12) + pack_xyn(*register, 0x5, 0x5),
-            Opcode::LoadRegisters(register) => (0xFu16 << 12) + pack_xyn(*register, 0x6, 0x5),
-            Opcode::Invalid(code) => *code,
+            Instruction::CallMachineCode(addr) => (0x0u16 << 12) + addr,
+            Instruction::ClearDisplay => 0x00E0,
+            Instruction::Return => 0x00EE,
+            Instruction::Jump(addr) => (0x1u16 << 12) + addr,
+            Instruction::Call(addr) => (0x2u16 << 12) + addr,
+            Instruction::SkipIfEq(rv) => (0x3u16 << 12) + pack_xkk(rv),
+            Instruction::SkipIfNeq(rv) => (0x4u16 << 12) + pack_xkk(rv),
+            Instruction::SkipIfRegEq(ts) => (0x5u16 << 12) + pack_tsn(ts, 0),
+            Instruction::SetReg(rv) => (0x6u16 << 12) + pack_xkk(rv),
+            Instruction::AddValueToReg(rv) => (0x7u16 << 12) + pack_xkk(rv),
+            Instruction::SetRegXToRegY(ts) => (0x8u16 << 12) + pack_tsn(ts, 0),
+            Instruction::BitXOrY(ts) => (0x8u16 << 12) + pack_tsn(ts, 1),
+            Instruction::BitXAndY(ts) => (0x8u16 << 12) + pack_tsn(ts, 2),
+            Instruction::BitXXorY(ts) => (0x8u16 << 12) + pack_tsn(ts, 3),
+            Instruction::AddYToX(ts) => (0x8u16 << 12) + pack_tsn(ts, 4),
+            Instruction::SubYFromX(ts) => (0x8u16 << 12) + pack_tsn(ts, 5),
+            Instruction::ShiftRight(register) => (0x8u16 << 12) + pack_xyn(*register, 0, 6),
+            Instruction::SubXFromYIntoX(ts) => (0x8u16 << 12) + pack_tsn(ts, 7),
+            Instruction::ShiftLeft(register) => (0x8u16 << 12) + ((*register as u16) << 8) + 0xE, //  pack_xyn(*register, 0, 0xE),
+            Instruction::SkipIfDifferent(ts) => (0x9u16 << 12) + pack_tsn(ts, 0),
+            Instruction::SetI(addr) => (0xAu16 << 12) + addr,
+            Instruction::JumpNPlusPC(addr) => (0xBu16 << 12) + addr,
+            Instruction::Random(rv) => (0xCu16 << 12) + pack_xkk(rv),
+            Instruction::Draw { x, y, n } => (0xDu16 << 12) + pack_xyn(*x, *y, *n),
+            Instruction::SkipIfKeyPressed(register) => {
+                (0xEu16 << 12) + pack_xyn(*register, 0x9, 0xE)
+            }
+            Instruction::SkipIfNotKeyPressed(register) => {
+                (0xEu16 << 12) + pack_xyn(*register, 0xA, 0x1)
+            }
+            Instruction::SetXAsDT(register) => (0xFu16 << 12) + pack_xyn(*register, 0x0, 0x7),
+            Instruction::WaitInputStoreIn(register) => {
+                (0xFu16 << 12) + pack_xyn(*register, 0x0, 0xA)
+            }
+            Instruction::SetDTAsX(register) => (0xFu16 << 12) + pack_xyn(*register, 0x1, 0x5),
+            Instruction::SetSTAsX(register) => (0xFu16 << 12) + pack_xyn(*register, 0x1, 0x8),
+            Instruction::AddXToI(register) => (0xFu16 << 12) + pack_xyn(*register, 0x1, 0xE),
+            Instruction::SetIToFontSprite(register) => {
+                (0xFu16 << 12) + pack_xyn(*register, 0x2, 0x9)
+            }
+            Instruction::StoreBCD(register) => (0xFu16 << 12) + pack_xyn(*register, 0x3, 0x3),
+            Instruction::DumpRegisters(register) => (0xFu16 << 12) + pack_xyn(*register, 0x5, 0x5),
+            Instruction::LoadRegisters(register) => (0xFu16 << 12) + pack_xyn(*register, 0x6, 0x5),
+            Instruction::Invalid(code) => *code,
         }
     }
 }
@@ -416,268 +424,283 @@ mod tests {
 
     #[test]
     fn call_machine_code() {
-        assert_eq!(Opcode::CallMachineCode(0xDEA), Opcode::parse(0x0DEA));
+        assert_eq!(
+            Instruction::CallMachineCode(0xDEA),
+            Instruction::parse(0x0DEA)
+        );
     }
 
     #[test]
     fn clear_display() {
-        assert_eq!(Opcode::ClearDisplay, Opcode::parse(0x00E0));
+        assert_eq!(Instruction::ClearDisplay, Instruction::parse(0x00E0));
     }
 
     #[test]
     fn return_code() {
-        assert_eq!(Opcode::Return, Opcode::parse(0x00EE));
+        assert_eq!(Instruction::Return, Instruction::parse(0x00EE));
     }
 
     #[test]
     fn jump() {
-        assert_eq!(Opcode::Jump(0xDEA), Opcode::parse(0x1DEA));
+        assert_eq!(Instruction::Jump(0xDEA), Instruction::parse(0x1DEA));
     }
 
     #[test]
     fn call() {
-        assert_eq!(Opcode::Call(0xDEA), Opcode::parse(0x2DEA));
+        assert_eq!(Instruction::Call(0xDEA), Instruction::parse(0x2DEA));
     }
 
     #[test]
     fn skip_if_equal() {
         assert_eq!(
-            Opcode::SkipIfEq(RegisterValuePair {
+            Instruction::SkipIfEq(RegisterValuePair {
                 register: 0xA,
                 value: 0xBB,
             }),
-            Opcode::parse(0x3ABB)
+            Instruction::parse(0x3ABB)
         );
     }
 
     #[test]
     fn skip_if_not_equal() {
         assert_eq!(
-            Opcode::SkipIfNeq(RegisterValuePair {
+            Instruction::SkipIfNeq(RegisterValuePair {
                 register: 0xA,
                 value: 0xBB,
             }),
-            Opcode::parse(0x4ABB)
+            Instruction::parse(0x4ABB)
         );
     }
 
     #[test]
     fn skip_if_reqister_equal() {
         assert_eq!(
-            Opcode::SkipIfRegEq(TargetSourcePair {
+            Instruction::SkipIfRegEq(TargetSourcePair {
                 target: 0xA,
                 source: 0xB,
             }),
-            Opcode::parse(0x5AB0)
+            Instruction::parse(0x5AB0)
         );
     }
 
     #[test]
     fn set_register() {
         assert_eq!(
-            Opcode::SetReg(RegisterValuePair {
+            Instruction::SetReg(RegisterValuePair {
                 register: 0xA,
                 value: 0xBB,
             }),
-            Opcode::parse(0x6ABB)
+            Instruction::parse(0x6ABB)
         );
     }
 
     #[test]
     fn add_value_to_register() {
         assert_eq!(
-            Opcode::AddValueToReg(RegisterValuePair {
+            Instruction::AddValueToReg(RegisterValuePair {
                 register: 0xA,
                 value: 0xBB,
             }),
-            Opcode::parse(0x7ABB)
+            Instruction::parse(0x7ABB)
         );
     }
 
     #[test]
     fn set_register_x_to_y() {
         assert_eq!(
-            Opcode::SetRegXToRegY(TargetSourcePair {
+            Instruction::SetRegXToRegY(TargetSourcePair {
                 target: 0xA,
                 source: 0xB,
             }),
-            Opcode::parse(0x8AB0)
+            Instruction::parse(0x8AB0)
         );
     }
 
     #[test]
     fn bit_x_or_y() {
         assert_eq!(
-            Opcode::BitXOrY(TargetSourcePair {
+            Instruction::BitXOrY(TargetSourcePair {
                 target: 0xA,
                 source: 0xB,
             }),
-            Opcode::parse(0x8AB1)
+            Instruction::parse(0x8AB1)
         );
     }
 
     #[test]
     fn bit_x_and_y() {
         assert_eq!(
-            Opcode::BitXAndY(TargetSourcePair {
+            Instruction::BitXAndY(TargetSourcePair {
                 target: 0xA,
                 source: 0xB,
             }),
-            Opcode::parse(0x8AB2)
+            Instruction::parse(0x8AB2)
         );
     }
 
     #[test]
     fn bit_x_xor_y() {
         assert_eq!(
-            Opcode::BitXXorY(TargetSourcePair {
+            Instruction::BitXXorY(TargetSourcePair {
                 target: 0xA,
                 source: 0xB,
             }),
-            Opcode::parse(0x8AB3)
+            Instruction::parse(0x8AB3)
         );
     }
 
     #[test]
     fn and_y_to_x() {
         assert_eq!(
-            Opcode::AddYToX(TargetSourcePair {
+            Instruction::AddYToX(TargetSourcePair {
                 target: 0xA,
                 source: 0xB,
             }),
-            Opcode::parse(0x8AB4)
+            Instruction::parse(0x8AB4)
         );
     }
 
     #[test]
     fn sub_y_from_x() {
         assert_eq!(
-            Opcode::SubYFromX(TargetSourcePair {
+            Instruction::SubYFromX(TargetSourcePair {
                 target: 0xA,
                 source: 0xB,
             }),
-            Opcode::parse(0x8AB5)
+            Instruction::parse(0x8AB5)
         );
     }
 
     #[test]
     fn shift_right() {
-        assert_eq!(Opcode::ShiftRight(0xA), Opcode::parse(0x8AB6));
+        assert_eq!(Instruction::ShiftRight(0xA), Instruction::parse(0x8AB6));
     }
 
     #[test]
     fn sub_x_from_y_into_x() {
         assert_eq!(
-            Opcode::SubXFromYIntoX(TargetSourcePair {
+            Instruction::SubXFromYIntoX(TargetSourcePair {
                 target: 0xA,
                 source: 0xB,
             }),
-            Opcode::parse(0x8AB7)
+            Instruction::parse(0x8AB7)
         );
     }
 
     #[test]
     fn shift_left() {
-        assert_eq!(Opcode::ShiftLeft(0xA), Opcode::parse(0x8ABE));
+        assert_eq!(Instruction::ShiftLeft(0xA), Instruction::parse(0x8ABE));
     }
 
     #[test]
     fn skip_if_different() {
         assert_eq!(
-            Opcode::SkipIfDifferent(TargetSourcePair {
+            Instruction::SkipIfDifferent(TargetSourcePair {
                 target: 0xA,
                 source: 0xB,
             }),
-            Opcode::parse(0x9AB0)
+            Instruction::parse(0x9AB0)
         );
     }
 
     #[test]
     fn set_i() {
-        assert_eq!(Opcode::SetI(0xDEA), Opcode::parse(0xADEA));
+        assert_eq!(Instruction::SetI(0xDEA), Instruction::parse(0xADEA));
     }
 
     #[test]
     fn jump_n_plus_pc() {
-        assert_eq!(Opcode::JumpNPlusPC(0xDEA), Opcode::parse(0xBDEA));
+        assert_eq!(Instruction::JumpNPlusPC(0xDEA), Instruction::parse(0xBDEA));
     }
 
     #[test]
     fn random() {
         assert_eq!(
-            Opcode::Random(RegisterValuePair {
+            Instruction::Random(RegisterValuePair {
                 register: 0xA,
                 value: 0xBB,
             }),
-            Opcode::parse(0xCABB)
+            Instruction::parse(0xCABB)
         );
     }
 
     #[test]
     fn draw() {
         assert_eq!(
-            Opcode::Draw {
+            Instruction::Draw {
                 x: 0xA,
                 y: 0xB,
                 n: 0xC,
             },
-            Opcode::parse(0xDABC)
+            Instruction::parse(0xDABC)
         );
     }
 
     #[test]
     fn skip_if_key_pressed() {
-        assert_eq!(Opcode::SkipIfKeyPressed(0xA), Opcode::parse(0xEA9E));
+        assert_eq!(
+            Instruction::SkipIfKeyPressed(0xA),
+            Instruction::parse(0xEA9E)
+        );
     }
 
     #[test]
     fn skip_if_not_key_pressed() {
-        assert_eq!(Opcode::SkipIfNotKeyPressed(0xA), Opcode::parse(0xEAA1));
+        assert_eq!(
+            Instruction::SkipIfNotKeyPressed(0xA),
+            Instruction::parse(0xEAA1)
+        );
     }
 
     #[test]
     fn set_x_as_dt() {
-        assert_eq!(Opcode::SetXAsDT(0xA), Opcode::parse(0xFA07));
+        assert_eq!(Instruction::SetXAsDT(0xA), Instruction::parse(0xFA07));
     }
 
     #[test]
     fn wait_input_store_in() {
-        assert_eq!(Opcode::WaitInputStoreIn(0xA), Opcode::parse(0xFA0A));
+        assert_eq!(
+            Instruction::WaitInputStoreIn(0xA),
+            Instruction::parse(0xFA0A)
+        );
     }
 
     #[test]
     fn set_dt_as_x() {
-        assert_eq!(Opcode::SetDTAsX(0xA), Opcode::parse(0xFA15));
+        assert_eq!(Instruction::SetDTAsX(0xA), Instruction::parse(0xFA15));
     }
 
     #[test]
     fn set_st_as_x() {
-        assert_eq!(Opcode::SetSTAsX(0xA), Opcode::parse(0xFA18));
+        assert_eq!(Instruction::SetSTAsX(0xA), Instruction::parse(0xFA18));
     }
 
     #[test]
     fn add_x_to_i() {
-        assert_eq!(Opcode::AddXToI(0xA), Opcode::parse(0xFA1E));
+        assert_eq!(Instruction::AddXToI(0xA), Instruction::parse(0xFA1E));
     }
 
     #[test]
     fn set_i_to_font_sprite() {
-        assert_eq!(Opcode::SetIToFontSprite(0xA), Opcode::parse(0xFA29));
+        assert_eq!(
+            Instruction::SetIToFontSprite(0xA),
+            Instruction::parse(0xFA29)
+        );
     }
 
     #[test]
     fn store_bcd() {
-        assert_eq!(Opcode::StoreBCD(0xA), Opcode::parse(0xFA33));
+        assert_eq!(Instruction::StoreBCD(0xA), Instruction::parse(0xFA33));
     }
 
     #[test]
     fn dump_registers() {
-        assert_eq!(Opcode::DumpRegisters(0xA), Opcode::parse(0xFA55));
+        assert_eq!(Instruction::DumpRegisters(0xA), Instruction::parse(0xFA55));
     }
 
     #[test]
     fn load_registers() {
-        assert_eq!(Opcode::LoadRegisters(0xA), Opcode::parse(0xFA65));
+        assert_eq!(Instruction::LoadRegisters(0xA), Instruction::parse(0xFA65));
     }
 
     #[test]
@@ -722,8 +745,8 @@ mod tests {
         ];
 
         for (code, result) in pairs {
-            let opcode = Opcode::parse(code);
-            let actual = opcode.to_asm();
+            let instruction = Instruction::parse(code);
+            let actual = instruction.to_asm();
             assert_eq!(actual, result);
         }
     }
@@ -739,8 +762,8 @@ mod tests {
         ];
 
         for code in code_list {
-            let opcode = Opcode::parse(code);
-            let result = opcode.to_u16();
+            let instruction = Instruction::parse(code);
+            let result = instruction.to_u16();
             assert_eq!(result, code);
         }
     }
