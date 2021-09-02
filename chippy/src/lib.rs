@@ -2,3 +2,4 @@
 #![allow(unused_variables)]
 
 pub mod emu;
+mod parser;
