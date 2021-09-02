@@ -1,13 +1,7 @@
 use crate::emu::{instruction::Instruction, iter::ByteCodeIter};
-use thiserror::Error;
+use crate::parser::error::ParseResult;
 
-pub type ParseResult<T> = std::result::Result<T, ParseError>;
-
-#[derive(Debug, Error)]
-pub enum ParseError {
-    #[error("IO Error: {0}")]
-    Io(#[from] std::io::Error),
-}
+pub mod error;
 
 pub fn from_asm(program: &str) -> ParseResult<Vec<Instruction>> {
     Ok(vec![])
