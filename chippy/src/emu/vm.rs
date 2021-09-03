@@ -5,6 +5,8 @@ use crate::{
 };
 use byteorder::{BigEndian, ReadBytesExt};
 
+use super::input::Input;
+
 const INITIAL_PROGRAM_COUNTER: u16 = 0x200;
 const MEMORY_SIZE: usize = 4096;
 const MEMORY_START: usize = 512;
@@ -30,12 +32,16 @@ fn skip_if(condition: bool) -> ProgramCounter {
 
 pub struct Vm {
     pub display: Display,
+    pub input: Input,
     memory: [u8; MEMORY_SIZE],
     registers: [Register; REGISTER_SIZE],
     stack: [StackEntry; STACK_SIZE],
     stack_pointer: usize,
     index: u16,
     program_counter: u16,
+    deplay_timer: u8,
+    sound_timer: u8,
+    wait_for_key: Option<u8>,
     should_draw: bool,
 }
 
@@ -48,12 +54,16 @@ impl Vm {
 
         Self {
             display: Display::new(),
+            input: Input::new(),
             memory,
             registers: [0; REGISTER_SIZE],
             stack: [0; STACK_SIZE],
             stack_pointer: 0,
             index: 0,
             program_counter: INITIAL_PROGRAM_COUNTER,
+            deplay_timer: 0,
+            sound_timer: 0,
+            wait_for_key: None,
             should_draw: false,
         }
     }
@@ -207,23 +217,29 @@ impl Vm {
                 self.should_draw = true;
                 ProgramCounter::Next
             }
-            Instruction::SkipIfKeyPressed(_) => {
-                unimplemented!() // TODO
+            Instruction::SkipIfKeyPressed(register) => {
+                let value = self.get_register(register);
+                skip_if(self.input.is_pressed(value))
             }
-            Instruction::SkipIfNotKeyPressed(_) => {
-                unimplemented!() // TODO
+            Instruction::SkipIfNotKeyPressed(register) => {
+                let value = self.get_register(register);
+                skip_if(!self.input.is_pressed(value))
             }
-            Instruction::SetXAsDT(_) => {
-                unimplemented!() // TODO
+            Instruction::SetXAsDT(register) => {
+                self.set_register(self.get_register(register), self.deplay_timer);
+                ProgramCounter::Next
             }
-            Instruction::WaitInputStoreIn(_) => {
-                unimplemented!() // TODO
+            Instruction::WaitInputStoreIn(register) => {
+                self.wait_for_key = Some(self.get_register(register));
+                ProgramCounter::Next
             }
-            Instruction::SetDTAsX(_) => {
-                unimplemented!() // TODO
+            Instruction::SetDTAsX(register) => {
+                self.deplay_timer = self.get_register(register);
+                ProgramCounter::Next
             }
-            Instruction::SetSTAsX(_) => {
-                unimplemented!() // TODO
+            Instruction::SetSTAsX(register) => {
+                self.sound_timer = self.get_register(register);
+                ProgramCounter::Next
             }
             Instruction::AddXToI(register) => {
                 let (result, _) = self
@@ -232,21 +248,32 @@ impl Vm {
                 self.index = result;
                 ProgramCounter::Next
             }
-            Instruction::SetIToFontSprite(_) => {
-                unimplemented!() // TODO
+            Instruction::SetIToFontSprite(register) => {
+                self.index = self.get_register(register) as u16 * 5; // sprites are 5 bytes long
+                ProgramCounter::Next
             }
-            Instruction::StoreBCD(_) => {
-                unimplemented!() // TODO
+            Instruction::StoreBCD(register) => {
+                let value = self.get_register(register);
+                self.set_memory(self.index, value / 100); // hundreds
+                self.set_memory(self.index + 1, (value % 100) / 10); // tens
+                self.set_memory(self.index + 2, value % 10); // ones
+                ProgramCounter::Next
             }
-            Instruction::DumpRegisters(_) => {
-                unimplemented!() // TODO
+            Instruction::DumpRegisters(limit) => {
+                for r in 0..=limit {
+                    self.set_memory(self.index, self.get_register(r));
+                    self.index += 1;
+                }
+                ProgramCounter::Next
             }
-            Instruction::LoadRegisters(_) => {
-                unimplemented!() // TODO
+            Instruction::LoadRegisters(limit) => {
+                for r in 0..=limit {
+                    self.set_register(r, self.get_memory(self.index));
+                    self.index += 1;
+                }
+                ProgramCounter::Next
             }
-            Instruction::Invalid(_) => {
-                unimplemented!() // TODO
-            }
+            Instruction::Invalid(_) => ProgramCounter::Next, // Skip invalid instructions
         }
     }
 
@@ -289,6 +316,12 @@ impl Vm {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn cycle(vm: &mut Vm, n: usize) {
+        for _ in 0..n {
+            vm.cycle()
+        }
+    }
 
     #[test]
     fn load_and_reset() {
@@ -379,18 +412,18 @@ mod tests {
     }
 
     #[test]
-    fn set_i_register() {
+    fn instructions_with_i_register() {
         let mut vm = Vm::new();
 
         let program = vec![
-            0xA5, 0x00, // I = 0x500
-            0x60, 0x05, // V0 = 0x05
-            0xF0, 0x1E, // I = I + V0
-            0x60, 0x03, // V0 = 0x03
-            0xF0, 0x29, // TODO fonts
-            0xA5, 0x00, // I = 0x500
-            0x60, 0xDA, // V0 = 0xDA
-            0xF0, 0x33, // TODO store bcd
+            0xA5, 0x00, // ld i, 0x500
+            0x60, 0x05, // ld v0, 0x05
+            0xF0, 0x1E, // add i, v0
+            0x60, 0x03, // ld v0, 0x03
+            0xF0, 0x29, // ld f, v0
+            0xA5, 0x00, // ld i, 0x500
+            0x60, 0xDA, // ld v0, 0xDA
+            0xF0, 0x33, // ld b, v0
         ];
 
         vm.load(program);
@@ -403,6 +436,74 @@ mod tests {
         vm.cycle();
         assert_eq!(vm.index, 0x505);
 
-        // TODO: More implementation
+        vm.cycle();
+        vm.cycle();
+        assert_eq!(vm.index, 0xF);
+
+        vm.cycle();
+        vm.cycle();
+        vm.cycle();
+        assert_eq!(vm.get_memory(vm.index), 2);
+        assert_eq!(vm.get_memory(vm.index + 1), 1);
+        assert_eq!(vm.get_memory(vm.index + 2), 8);
     }
+
+    #[test]
+    fn dump_and_load_registers() {
+        let mut vm = Vm::new();
+        let program = vec![
+            0xA4, 0x00, // ld i, 0x400
+            0x60, 0xF0, // ld v0, 0xF0
+            0x61, 0xDD, // ld v1, 0xDD
+            0x62, 0x1E, // ld v2, 0x1E
+            0x63, 0x17, // ld v3, 0x17
+            0x64, 0x4D, // ld v4, 0x4D
+            0x65, 0x29, // ld v5, 0x29
+            0xF5, 0x55, // ld [i], v5
+            0x60, 0x00, // ld v0, 0x00
+            0x61, 0x00, // ld v1, 0x00
+            0x62, 0x00, // ld v2, 0x00
+            0x63, 0x00, // ld v3, 0x00
+            0x64, 0x00, // ld v4, 0x00
+            0x65, 0x00, // ld v5, 0x00
+            0xA4, 0x00, // ld i, 0x400
+            0xF5, 0x65, // ld v5, [i]
+        ];
+
+        let register_values = vec![0xF0u8, 0xDDu8, 0x1Eu8, 0x17u8, 0x4Du8, 0x29u8];
+
+        vm.load(program);
+
+        // Load the index with value 0x400
+        vm.cycle();
+        assert_eq!(vm.index, 0x400);
+
+        // Load registers V0 to V5
+        cycle(&mut vm, 6);
+        for (i, value) in register_values.iter().enumerate() {
+            assert_eq!(vm.get_register(i as u8), *value);
+        }
+
+        // Execute the dump instruction for registers v0 - v5
+        vm.cycle();
+        assert_eq!(vm.index, 0x406);
+        for i in 0..=5 {
+            assert_eq!(vm.get_register(i), vm.get_memory(0x400 + i as u16))
+        }
+
+        // Clear registers v0 - v5 and reset I to 0x400
+        cycle(&mut vm, 7);
+        assert_eq!(vm.index, 0x400);
+        for i in 0..=5 {
+            assert_eq!(vm.get_register(i), 0x0);
+        }
+
+        // Execute the load instruction
+        vm.cycle();
+        for (i, value) in register_values.iter().enumerate() {
+            assert_eq!(vm.get_register(i as u8), *value);
+        }
+    }
+
+    // TODO: timers, input and control flow
 }
