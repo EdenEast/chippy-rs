@@ -2,9 +2,10 @@ use crate::emu::{instruction::Instruction, iter::ByteCodeIter};
 use crate::parser::error::ParseResult;
 
 pub mod error;
+pub mod imp;
 
 pub fn from_asm(program: &str) -> ParseResult<Vec<Instruction>> {
-    Ok(vec![])
+    imp::parse(program)
 }
 
 pub fn from_bytecode(bytecode: &[u8]) -> ParseResult<Vec<Instruction>> {
@@ -114,9 +115,9 @@ and v1, v2
 xor v1, v2
 add v1, v2
 sub v1, v2
-shr v1
+shr v1, v2
 subn v1, v2
-shl v1
+shl v1, v2
 sne v3, vE
 ld i, 0x123
 jp v0, 0x123
@@ -138,26 +139,34 @@ raw 0xF169"#,
     }
 
     #[test]
-    fn from_bytecode_to_instruction() {
-        let program = get_program();
-        let instructions = from_bytecode(&program).unwrap();
+    fn from_bytecode_to_instructions() {
+        let result = from_bytecode(&get_program()).unwrap();
         let actual = get_instructions();
-        assert_eq!(instructions, actual);
+        let iter = result.iter().zip(actual);
+        iter.for_each(|(r, a)| assert_eq!(*r, a));
+    }
+
+    #[test]
+    fn from_asm_to_instructions() {
+        let result = from_asm(&get_asm()).unwrap();
+        let actual = get_instructions();
+        let iter = result.iter().zip(actual);
+        iter.for_each(|(r, a)| assert_eq!(*r, a));
     }
 
     #[test]
     fn from_instructions_to_bytecode() {
-        let instructions = get_instructions();
-        let bytecode = to_bytecode(&instructions).unwrap();
+        let result = to_bytecode(&get_instructions()).unwrap();
         let actual = get_program();
-        assert_eq!(bytecode, actual);
+        let iter = result.iter().zip(actual);
+        iter.for_each(|(r, a)| assert_eq!(*r, a));
     }
 
     #[test]
     fn from_instructions_to_asm() {
-        let instruction = get_instructions();
-        let asm = to_asm(&&instruction).unwrap();
+        let result = to_asm(&get_instructions()).unwrap();
         let actual = get_asm();
-        assert_eq!(asm, actual);
+        let iter = result.split('\n').zip(actual.split('\n'));
+        iter.for_each(|(r, a)| assert_eq!(*r, *a));
     }
 }

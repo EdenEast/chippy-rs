@@ -300,13 +300,13 @@ impl Instruction {
                 format!("sub v{:X}, v{:X}", target, source)
             }
             Instruction::ShiftRight(TargetSourcePair { target, source }) => {
-                format!("shr v{:X}", target)
+                format!("shr v{:X}, v{:X}", target, source)
             }
             Instruction::SubXFromYIntoX(TargetSourcePair { target, source }) => {
                 format!("subn v{:X}, v{:X}", target, source)
             }
             Instruction::ShiftLeft(TargetSourcePair { target, source }) => {
-                format!("shl v{:X}", target)
+                format!("shl v{:X}, v{:X}", target, source)
             }
             Instruction::SkipIfDifferent(TargetSourcePair { target, source }) => {
                 format!("sne v{:X}, v{:X}", target, source)
@@ -734,9 +734,9 @@ mod tests {
             (0x8123, "xor v1, v2"),
             (0x8124, "add v1, v2"),
             (0x8125, "sub v1, v2"),
-            (0x8126, "shr v1"),
+            (0x8126, "shr v1, v2"),
             (0x8127, "subn v1, v2"),
-            (0x812E, "shl v1"),
+            (0x812E, "shl v1, v2"),
             (0x93E0, "sne v3, vE"),
             (0xA123, "ld i, 0x123"),
             (0xB123, "jp v0, 0x123"),
