@@ -16,10 +16,16 @@ const STACK_SIZE: usize = 16;
 type Register = u8;
 type StackEntry = u16;
 
+pub enum ProgramState {
+    Continue,
+    Stop,
+}
+
 pub enum ProgramCounter {
     Next,
     Skip,
     Jump(u16),
+    Stop,
 }
 
 fn skip_if(condition: bool) -> ProgramCounter {
@@ -42,7 +48,7 @@ pub struct Vm {
     deplay_timer: u8,
     sound_timer: u8,
     wait_for_key: Option<u8>,
-    should_draw: bool,
+    pub should_draw: bool,
 }
 
 impl Vm {
@@ -88,7 +94,7 @@ impl Vm {
         self.should_draw = false;
     }
 
-    pub fn cycle(&mut self) {
+    pub fn cycle(&mut self) -> ProgramState {
         if self.should_draw {
             self.should_draw = false;
         }
@@ -97,11 +103,21 @@ impl Vm {
         let mut parts = &self.memory[position..position + 2];
         let opcode = parts.read_u16::<BigEndian>().unwrap();
 
-        self.program_counter = match self.execute_instruction(opcode) {
-            ProgramCounter::Next => self.program_counter + 2,
-            ProgramCounter::Skip => self.program_counter + 4,
-            ProgramCounter::Jump(addr) => addr,
-        };
+        match self.execute_instruction(opcode) {
+            ProgramCounter::Next => {
+                self.program_counter += 2;
+                ProgramState::Continue
+            }
+            ProgramCounter::Skip => {
+                self.program_counter += 4;
+                ProgramState::Continue
+            }
+            ProgramCounter::Jump(addr) => {
+                self.program_counter = addr;
+                ProgramState::Continue
+            }
+            ProgramCounter::Stop => ProgramState::Stop,
+        }
     }
 
     pub fn execute_instruction(&mut self, opcode: u16) -> ProgramCounter {
@@ -112,7 +128,10 @@ impl Vm {
             Instruction::ClearDisplay => {
                 ProgramCounter::Next // TODO
             }
-            Instruction::Return => ProgramCounter::Jump(self.pop_stack()),
+            Instruction::Return => match self.pop_stack() {
+                Some(addr) => ProgramCounter::Jump(addr),
+                None => ProgramCounter::Stop,
+            },
             Instruction::Jump(addr) => ProgramCounter::Jump(addr),
             Instruction::Call(addr) => {
                 self.push_stack();
@@ -299,9 +318,9 @@ impl Vm {
         self.stack_pointer += 1;
     }
 
-    fn pop_stack(&mut self) -> u16 {
+    fn pop_stack(&mut self) -> Option<u16> {
         self.stack_pointer -= 1;
-        self.stack[self.stack_pointer]
+        self.stack.get(self.stack_pointer).map(|s| *s)
     }
 
     fn get_memory(&self, index: u16) -> u8 {
@@ -311,6 +330,12 @@ impl Vm {
     fn set_memory(&mut self, index: u16, value: u8) {
         self.memory[index as usize] = value;
     }
+
+    pub fn decrement_registers(&mut self) {
+        if self.deplay_timer > 0 {
+            self.deplay_timer -= 1;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -319,7 +344,7 @@ mod tests {
 
     fn cycle(vm: &mut Vm, n: usize) {
         for _ in 0..n {
-            vm.cycle()
+            vm.cycle();
         }
     }
 

@@ -1,0 +1,12 @@
+[package]
+name = "chippy-cli"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+chippy = {path = '../chippy'}
+color-eyre = "0.5.11"
+ctrlc = "3.2.0"
+eyre = "0.6.5"
+structopt = "0.3.23"
+
