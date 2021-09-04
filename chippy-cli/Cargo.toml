@@ -6,7 +6,9 @@ edition = "2018"
 [dependencies]
 chippy = {path = '../chippy'}
 color-eyre = "0.5.11"
+crossterm = "0.21.0"
 ctrlc = "3.2.0"
 eyre = "0.6.5"
 structopt = "0.3.23"
+tui = {version = "0.16.0", default-features = false, features = ['crossterm']}
 

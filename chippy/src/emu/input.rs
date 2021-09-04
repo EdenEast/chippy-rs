@@ -78,6 +78,10 @@ impl Input {
         self.keys[key as usize]
     }
 
+    pub fn clear(&mut self) {
+        self.keys = [false; KEYPAD_SIZE];
+    }
+
     pub fn key_up(&mut self, key: Key) {
         self.keys[key as usize] = false;
     }
