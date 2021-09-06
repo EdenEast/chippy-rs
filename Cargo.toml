@@ -1,9 +1,7 @@
 [workspace]
 members = [
     "chippy",
-    "chippy-cli",
-    "chippy-native",
-    "chippy-web",
+    "front/cli",
 ]
 
 [profiles.release]
