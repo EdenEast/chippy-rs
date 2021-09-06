@@ -4,11 +4,11 @@ pub const SCREEN_HEIGHT: usize = 32;
 pub type Pixles = [bool; SCREEN_WIDTH * SCREEN_HEIGHT];
 
 #[derive(Debug)]
-pub struct Display {
+pub struct Gpu {
     pub pixels: Pixles,
 }
 
-impl Display {
+impl Gpu {
     pub fn new() -> Self {
         Self {
             pixels: [false; SCREEN_WIDTH * SCREEN_HEIGHT],

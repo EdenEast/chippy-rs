@@ -1,6 +1,6 @@
 use crate::{
-    emu::display::Display,
     emu::font::FONT_SET,
+    emu::gpu::Gpu,
     emu::instruction::{Instruction, RegisterValuePair, TargetSourcePair},
 };
 use byteorder::{BigEndian, ReadBytesExt};
@@ -37,7 +37,7 @@ fn skip_if(condition: bool) -> ProgramCounter {
 }
 
 pub struct Vm {
-    pub display: Display,
+    pub display: Gpu,
     pub input: Input,
     memory: [u8; MEMORY_SIZE],
     registers: [Register; REGISTER_SIZE],
@@ -59,7 +59,7 @@ impl Vm {
         }
 
         Self {
-            display: Display::new(),
+            display: Gpu::new(),
             input: Input::new(),
             memory,
             registers: [0; REGISTER_SIZE],
