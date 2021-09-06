@@ -60,6 +60,25 @@ impl Gpu {
     }
 }
 
+impl std::fmt::Display for Gpu {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut result = String::new();
+        result.push_str("\n");
+        for y in 0..SCREEN_HEIGHT {
+            for x in 0..SCREEN_WIDTH {
+                let bit = self.get(x as usize, y as usize);
+                let s = match bit {
+                    true => "█",
+                    false => "·",
+                };
+                result.push_str(s.as_ref());
+            }
+            result.push_str("\n");
+        }
+        write!(f, "{}", result)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
