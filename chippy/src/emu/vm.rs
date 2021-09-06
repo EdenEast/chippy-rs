@@ -37,7 +37,7 @@ fn skip_if(condition: bool) -> ProgramCounter {
 }
 
 pub struct Vm {
-    pub display: Gpu,
+    pub gpu: Gpu,
     pub input: Input,
     memory: [u8; MEMORY_SIZE],
     registers: [Register; REGISTER_SIZE],
@@ -59,7 +59,7 @@ impl Vm {
         }
 
         Self {
-            display: Gpu::new(),
+            gpu: Gpu::new(),
             input: Input::new(),
             memory,
             registers: [0; REGISTER_SIZE],
@@ -85,7 +85,7 @@ impl Vm {
             self.memory[index] = 0;
         }
 
-        self.display.clear();
+        self.gpu.clear();
         self.registers = [0; REGISTER_SIZE];
         self.stack = [0; STACK_SIZE];
         self.stack_pointer = 0;
@@ -104,20 +104,21 @@ impl Vm {
         let opcode = parts.read_u16::<BigEndian>().unwrap();
 
         match self.execute_instruction(opcode) {
-            ProgramCounter::Next => {
-                self.program_counter += 2;
-                ProgramState::Continue
-            }
-            ProgramCounter::Skip => {
-                self.program_counter += 4;
-                ProgramState::Continue
-            }
-            ProgramCounter::Jump(addr) => {
-                self.program_counter = addr;
-                ProgramState::Continue
-            }
-            ProgramCounter::Stop => ProgramState::Stop,
+            ProgramCounter::Next => self.program_counter += 2,
+            ProgramCounter::Skip => self.program_counter += 4,
+            ProgramCounter::Jump(addr) => self.program_counter = addr,
+            ProgramCounter::Stop => return ProgramState::Stop,
+        };
+
+        if self.deplay_timer > 0 {
+            self.deplay_timer -= 1;
         }
+
+        if self.sound_timer > 0 {
+            self.sound_timer -= 1;
+        }
+
+        ProgramState::Continue
     }
 
     pub fn execute_instruction(&mut self, opcode: u16) -> ProgramCounter {
@@ -126,7 +127,8 @@ impl Vm {
                 ProgramCounter::Next // TODO
             }
             Instruction::ClearDisplay => {
-                ProgramCounter::Next // TODO
+                self.gpu.clear();
+                ProgramCounter::Next
             }
             Instruction::Return => match self.pop_stack() {
                 Some(addr) => ProgramCounter::Jump(addr),
@@ -227,7 +229,7 @@ impl Vm {
                 ProgramCounter::Next
             }
             Instruction::Draw { x, y, n } => {
-                let new_vf = self.display.draw(
+                let new_vf = self.gpu.draw(
                     self.get_register(x) as usize,
                     self.get_register(y) as usize,
                     &self.memory[self.index as usize..(self.index + n as u16) as usize],
@@ -245,7 +247,7 @@ impl Vm {
                 skip_if(!self.input.is_pressed(value))
             }
             Instruction::SetXAsDT(register) => {
-                self.set_register(self.get_register(register), self.deplay_timer);
+                self.set_register(register, self.deplay_timer);
                 ProgramCounter::Next
             }
             Instruction::WaitInputStoreIn(register) => {
@@ -329,12 +331,6 @@ impl Vm {
 
     fn set_memory(&mut self, index: u16, value: u8) {
         self.memory[index as usize] = value;
-    }
-
-    pub fn decrement_registers(&mut self) {
-        if self.deplay_timer > 0 {
-            self.deplay_timer -= 1;
-        }
     }
 }
 
@@ -530,5 +526,27 @@ mod tests {
         }
     }
 
-    // TODO: timers, input and control flow
+    #[test]
+    fn dt_and_st() {
+        let program = vec![
+            0x60, 0x05, // ld v0, 0x05
+            0xF0, 0x15, // ld dt, v0
+            0xF0, 0x18, // ld st, v0
+        ];
+
+        let mut vm = Vm::new();
+        vm.load(program);
+
+        vm.cycle();
+        assert_eq!(vm.get_register(0x0), 0x05);
+
+        vm.cycle();
+        assert_eq!(vm.deplay_timer, 0x04);
+
+        vm.cycle();
+        assert_eq!(vm.sound_timer, 0x04);
+        assert_eq!(vm.deplay_timer, 0x03);
+    }
+
+    // TODO: input and control flow
 }
