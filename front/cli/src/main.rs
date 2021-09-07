@@ -1,4 +1,8 @@
+#![allow(unused_variables)]
+#![allow(unused_imports)]
+
 use chippy::emu::{
+    gpu,
     input::Key,
     vm::{ProgramState, Vm},
 };
@@ -13,6 +17,17 @@ use std::{
     time::{Duration, Instant},
 };
 use structopt::StructOpt;
+use tui::{
+    backend::{Backend, CrosstermBackend},
+    layout::{Constraint, Layout},
+    style::{Color, Modifier, Style},
+    text::Span,
+    widgets::{Block, BorderType, Borders},
+    Frame, Terminal,
+};
+mod ui;
+
+type Term = tui::terminal::Terminal<tui::backend::CrosstermBackend<std::io::Stdout>>;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "chippy")]
@@ -48,6 +63,8 @@ fn main() -> Result<()> {
     ctrlc::set_handler(move || {
         ctrlc_running_handle.store(false, Ordering::SeqCst);
     })?;
+
+    let mut term = create_terminal()?;
 
     let frame = Duration::from_millis((1000 / opts.fps) as u64);
     while running.load(Ordering::SeqCst) {
@@ -87,10 +104,9 @@ fn main() -> Result<()> {
             ProgramState::Stop => running.store(false, Ordering::SeqCst),
         }
 
-        vm.decrement_registers();
         if vm.should_draw {
             vm.should_draw = false;
-            // TODO: render
+            term.draw(|f| ui::draw(f, &vm.gpu))?;
         }
 
         if let Some(remaining) = frame.checked_sub(now.elapsed()) {
@@ -101,4 +117,11 @@ fn main() -> Result<()> {
     crossterm::terminal::disable_raw_mode().unwrap();
 
     Ok(())
+}
+
+fn create_terminal() -> Result<Term> {
+    let stdout = std::io::stdout();
+    let backend = tui::backend::CrosstermBackend::new(stdout);
+    let something = tui::terminal::Terminal::new(backend).wrap_err("Failed to create terminal");
+    something
 }
