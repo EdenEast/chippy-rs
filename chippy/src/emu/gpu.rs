@@ -48,10 +48,17 @@ impl Gpu {
         let mut collision = false;
         for yy in 0..bytes.len() {
             for xx in 0..8 {
-                let bit = (bytes[yy] >> xx) & 0b1 != 0;
-                collision |= self.toggle(x + 7 - xx, y + y, bit);
+                let bit = ((bytes[yy] >> xx) & 0b1) != 0;
+                collision |= self.toggle(x + 7 - xx, y + yy, bit);
             }
         }
+        // let mut collision = false;
+        // for yy in 0..bytes.len() {
+        //     for xx in 0..8 {
+        //         let bit = (bytes[yy] >> xx) & 0b1 != 0;
+        //         collision |= self.toggle(x + 7 - xx, y + y, bit);
+        //     }
+        // }
 
         match collision {
             true => 1,

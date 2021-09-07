@@ -104,9 +104,9 @@ fn main() -> Result<()> {
             ProgramState::Stop => running.store(false, Ordering::SeqCst),
         }
 
-        if vm.should_draw {
-            vm.should_draw = false;
+        if vm.gpu.pending_draw {
             term.draw(|f| ui::draw(f, &vm.gpu))?;
+            vm.gpu.pending_draw = false;
         }
 
         if let Some(remaining) = frame.checked_sub(now.elapsed()) {

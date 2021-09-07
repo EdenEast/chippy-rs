@@ -48,7 +48,6 @@ pub struct Vm {
     deplay_timer: u8,
     sound_timer: u8,
     wait_for_key: Option<u8>,
-    pub should_draw: bool,
 }
 
 impl Vm {
@@ -70,7 +69,6 @@ impl Vm {
             deplay_timer: 0,
             sound_timer: 0,
             wait_for_key: None,
-            should_draw: false,
         }
     }
 
@@ -91,14 +89,9 @@ impl Vm {
         self.stack_pointer = 0;
         self.index = 0;
         self.program_counter = INITIAL_PROGRAM_COUNTER;
-        self.should_draw = false;
     }
 
     pub fn cycle(&mut self) -> ProgramState {
-        if self.should_draw {
-            self.should_draw = false;
-        }
-
         let position = self.program_counter as usize;
         let mut parts = &self.memory[position..position + 2];
         let opcode = parts.read_u16::<BigEndian>().unwrap();
@@ -229,13 +222,13 @@ impl Vm {
                 ProgramCounter::Next
             }
             Instruction::Draw { x, y, n } => {
+                let (i, nn) = (self.index as usize, n as usize);
                 let new_vf = self.gpu.draw(
                     self.get_register(x) as usize,
                     self.get_register(y) as usize,
-                    &self.memory[self.index as usize..(self.index + n as u16) as usize],
+                    &self.memory[i..i + nn],
                 );
                 self.set_vf_register(new_vf);
-                self.should_draw = true;
                 ProgramCounter::Next
             }
             Instruction::SkipIfKeyPressed(register) => {
