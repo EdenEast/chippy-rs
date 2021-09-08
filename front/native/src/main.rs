@@ -1,6 +1,6 @@
 #![allow(unused_variables)]
 
-use chippy::emu::{self, vm::Vm};
+use chippy::emu::{self, input::Key, vm::Vm};
 use emu::gpu;
 use eyre::{eyre, Result, WrapErr};
 use log::error;
@@ -10,6 +10,8 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
+
+mod input;
 
 const PIXEL_SIZE: u32 = 16;
 
@@ -40,6 +42,7 @@ fn main() -> Result<()> {
     );
 
     let scale_factor = 1.0;
+    let mapping = input::KeyMapping::default();
 
     let romfile = std::env::args()
         .nth(1)
@@ -47,8 +50,6 @@ fn main() -> Result<()> {
     let bytes = std::fs::read(romfile).wrap_err("Failed to open c8 file")?;
     let mut vm = Vm::new();
     vm.load(bytes);
-
-    println!("{:#?}", size);
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
@@ -98,6 +99,12 @@ fn main() -> Result<()> {
                 ..
             } => {
                 // Handle keystate
+                if let Some(key) = input::to_emu_key(&keycode, mapping) {
+                    match state {
+                        ElementState::Pressed => vm.input.key_down(key),
+                        ElementState::Released => vm.input.key_up(key),
+                    };
+                }
             }
             Event::WindowEvent {
                 event: WindowEvent::Resized(size),
