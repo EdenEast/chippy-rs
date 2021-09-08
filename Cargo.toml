@@ -2,7 +2,9 @@
 members = [
     "chippy",
     "front/cli",
+    "front/native",
 ]
+resolver = "2"
 
 [profiles.release]
 lto = true
